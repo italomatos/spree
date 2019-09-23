@@ -16,6 +16,7 @@ module Spree
         end
 
         def create
+          @order.validate_payments_attributes([payment_params])
           @payment = @order.payments.build(payment_params)
           if @payment.save
             respond_with(@payment, status: 201, default_template: :show)
@@ -28,7 +29,7 @@ module Spree
           authorize! params[:action], @payment
           if !@payment.editable?
             render 'update_forbidden', status: 403
-          elsif @payment.update_attributes(payment_params)
+          elsif @payment.update(payment_params)
             respond_with(@payment, default_template: :show)
           else
             invalid_resource!(@payment)
@@ -59,7 +60,7 @@ module Spree
 
         def find_order
           @order = Spree::Order.find_by!(number: order_id)
-          authorize! :read, @order, order_token
+          authorize! :show, @order, order_token
         end
 
         def find_payment

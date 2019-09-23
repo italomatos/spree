@@ -1,13 +1,16 @@
 if ENV['COVERAGE']
   # Run Coverage report
   require 'simplecov'
-  SimpleCov.start do
-    add_group 'Controllers', 'app/controllers'
-    add_group 'Helpers', 'app/helpers'
-    add_group 'Mailers', 'app/mailers'
-    add_group 'Models', 'app/models'
-    add_group 'Views', 'app/views'
-    add_group 'Libraries', 'lib'
+  SimpleCov.start 'rails' do
+    add_group 'Libraries', 'lib/spree'
+
+    add_filter '/bin/'
+    add_filter '/db/'
+    add_filter '/script/'
+    add_filter '/spec/'
+    add_filter '/lib/generators/'
+
+    coverage_dir "#{ENV['COVERAGE_DIR']}/backend" if ENV['COVERAGE_DIR']
   end
 end
 
@@ -30,7 +33,6 @@ Dir["#{File.dirname(__FILE__)}/support/**/*.rb"].each { |f| require f }
 
 require 'database_cleaner'
 require 'ffaker'
-require 'timeout'
 require 'rspec/retry'
 
 require 'spree/testing_support/authorization_helpers'
@@ -41,22 +43,15 @@ require 'spree/testing_support/flash'
 require 'spree/testing_support/url_helpers'
 require 'spree/testing_support/order_walkthrough'
 require 'spree/testing_support/capybara_ext'
+require 'spree/testing_support/capybara_config'
+require 'spree/testing_support/image_helpers'
 
 require 'spree/core/controller_helpers/strong_parameters'
-
-require 'paperclip/matchers'
-
-require 'capybara-screenshot/rspec'
-Capybara.save_path = ENV['CIRCLE_ARTIFACTS'] if ENV['CIRCLE_ARTIFACTS']
-
-require 'capybara/poltergeist'
-Capybara.javascript_driver = :poltergeist
-
-# Set timeout to something high enough to allow CI to pass
-Capybara.default_max_wait_time = 30
+require 'webdrivers'
 
 RSpec.configure do |config|
   config.color = true
+  config.default_formatter = 'doc'
   config.fail_fast = ENV['FAIL_FAST'] || false
   config.infer_spec_type_from_file_location!
   config.mock_with :rspec
@@ -68,11 +63,11 @@ RSpec.configure do |config|
   config.use_transactional_fixtures = false
 
   config.before :suite do
-    Capybara.match = :prefer_exact
+    Capybara.match = :smart
     DatabaseCleaner.clean_with :truncation
   end
 
-  config.before(:each) do
+  config.before do
     Rails.cache.clear
     WebMock.disable!
     DatabaseCleaner.strategy = if RSpec.current_example.metadata[:js]
@@ -82,24 +77,10 @@ RSpec.configure do |config|
                                end
     # TODO: Find out why open_transactions ever gets below 0
     # See issue #3428
-    if ApplicationRecord.connection.open_transactions < 0
-      ApplicationRecord.connection.increment_open_transactions
-    end
+    ApplicationRecord.connection.increment_open_transactions if ApplicationRecord.connection.open_transactions < 0
 
     DatabaseCleaner.start
     reset_spree_preferences
-  end
-
-  config.after(:each) do
-    # wait_for_ajax sometimes fails so we should clean db first to get rid of false failed specs
-    DatabaseCleaner.clean
-
-    # Ensure js requests finish processing before advancing to the next test
-    wait_for_ajax if RSpec.current_example.metadata[:js]
-  end
-
-  config.around do |example|
-    Timeout.timeout(30, &example)
   end
 
   config.after(:each, type: :feature) do |example|
@@ -110,23 +91,19 @@ RSpec.configure do |config|
     end
   end
 
+  config.append_after do
+    DatabaseCleaner.clean
+  end
+
   config.include FactoryBot::Syntax::Methods
 
   config.include Spree::TestingSupport::Preferences
   config.include Spree::TestingSupport::UrlHelpers
   config.include Spree::TestingSupport::ControllerRequests, type: :controller
   config.include Spree::TestingSupport::Flash
+  config.include Spree::TestingSupport::ImageHelpers
 
   config.include Spree::Core::ControllerHelpers::StrongParameters, type: :controller
-
-  config.include Paperclip::Shoulda::Matchers
-
-  config.extend WithModel
-
-  config.include VersionCake::TestHelpers, type: :controller
-  config.before(:each, type: :controller) do
-    set_request_version('', 1)
-  end
 
   config.verbose_retry = true
   config.display_try_failure_messages = true
@@ -134,6 +111,12 @@ RSpec.configure do |config|
   config.around :each, type: :feature do |ex|
     ex.run_with_retry retry: 3
   end
+
+  config.order = :random
+  Kernel.srand config.seed
+
+  config.filter_run_including focus: true unless ENV['CI']
+  config.run_all_when_everything_filtered = true
 end
 
 module Spree

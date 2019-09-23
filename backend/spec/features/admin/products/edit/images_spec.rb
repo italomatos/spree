@@ -9,13 +9,12 @@ describe 'Product Images', type: :feature, js: true do
     # Ensure attachment style keys are symbolized before running all tests
     # Otherwise this would result in this error:
     # undefined method `processors' for \"48x48>\
-    Spree::Image.attachment_definitions[:attachment][:styles].symbolize_keys!
+    Spree::Image.styles.symbolize_keys!
+    allow(ENV).to receive(:[]).and_call_original
   end
 
   context 'uploading, editing, and deleting an image' do
-    it 'should allow an admin to upload and edit an image for a product' do
-      Spree::Image.attachment_definitions[:attachment].delete :storage
-
+    it 'allows an admin to upload and edit an image for a product' do
       create(:product)
 
       visit spree.admin_products_path
@@ -32,17 +31,19 @@ describe 'Product Images', type: :feature, js: true do
       expect(page).to have_content('successfully updated!')
       expect(page).to have_content('ruby on rails t-shirt')
 
-      accept_alert do
+      accept_confirm do
         click_icon :delete
       end
+
+      expect(page).to have_content('successfully removed!')
       expect(page).not_to have_content('ruby on rails t-shirt')
     end
   end
 
   # Regression test for #2228
-  it 'should see variant images', js: false do
+  it 'sees variant images', js: false do
     variant = create(:variant)
-    variant.images.create!(attachment: File.open(file_path))
+    create_image(variant, File.open(file_path))
     visit spree.admin_product_images_path(variant.product)
 
     expect(page).not_to have_content('No Images Found.')
@@ -54,7 +55,7 @@ describe 'Product Images', type: :feature, js: true do
 
       # ensure variant header is displayed
       within('thead') do
-        expect(page.body).to have_content('Variant')
+        expect(page).to have_content('Variant')
       end
 
       # ensure variant header is displayed
@@ -64,9 +65,9 @@ describe 'Product Images', type: :feature, js: true do
     end
   end
 
-  it 'should not see variant column when product has no variants', js: false do
+  it 'does not see variant column when product has no variants', js: false do
     product = create(:product)
-    product.images.create!(attachment: File.open(file_path))
+    create_image(product, File.open(file_path))
     visit spree.admin_product_images_path(product)
 
     expect(page).not_to have_content('No Images Found.')

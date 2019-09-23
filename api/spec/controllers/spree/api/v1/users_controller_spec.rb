@@ -40,7 +40,6 @@ module Spree
         api_post :create, user: {}, token: user.spree_api_key
         expect(response.status).to eq(422)
         expect(json_response['error']).to eq('Invalid resource. Please fix errors and try again.')
-        errors = json_response['errors']
       end
 
       it 'can update own details' do
@@ -69,8 +68,8 @@ module Spree
           }
         }
         expect(json_response['email']).to eq 'mine@example.com'
-        expect(json_response['bill_address']).to_not be_nil
-        expect(json_response['ship_address']).to_not be_nil
+        expect(json_response['bill_address']).not_to be_nil
+        expect(json_response['ship_address']).not_to be_nil
       end
 
       it 'cannot update other users details' do
@@ -88,8 +87,8 @@ module Spree
         assert_not_found!
       end
 
-      it 'should only get own details on index' do
-        2.times { create(:user) }
+      it 'only gets own details on index' do
+        create_list(:user, 2)
         api_get :index, token: user.spree_api_key
 
         expect(Spree.user_class.count).to eq 3
@@ -106,7 +105,7 @@ module Spree
       it 'gets all users' do
         allow(Spree::LegacyUser).to receive(:find_by).with(hash_including(:spree_api_key)) { current_api_user }
 
-        2.times { create(:user) }
+        create_list(:user, 2)
 
         api_get :index
         expect(Spree.user_class.count).to eq 2
@@ -115,7 +114,7 @@ module Spree
       end
 
       it 'can control the page size through a parameter' do
-        2.times { create(:user) }
+        create_list(:user, 2)
         api_get :index, per_page: 1
         expect(json_response['count']).to eq(1)
         expect(json_response['current_page']).to eq(1)

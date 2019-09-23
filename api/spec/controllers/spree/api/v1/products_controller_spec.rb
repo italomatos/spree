@@ -19,9 +19,9 @@ module Spree
     let(:attributes_for_variant) do
       h = attributes_for(:variant).except(:option_values, :product)
       h.merge(options: [
-          { name: 'size', value: 'small' },
-          { name: 'color', value: 'black' }
-        ])
+                { name: 'size', value: 'small' },
+                { name: 'color', value: 'black' }
+              ])
     end
 
     before do
@@ -30,20 +30,19 @@ module Spree
 
     context 'as a normal user' do
       context 'with caching enabled' do
-        let!(:product_2) { create(:product) }
-
         before do
+          create(:product) # product_2
           ActionController::Base.perform_caching = true
+        end
+
+        after do
+          ActionController::Base.perform_caching = false
         end
 
         it 'returns unique products' do
           api_get :index
           product_ids = json_response['products'].map { |p| p['id'] }
           expect(product_ids.uniq.count).to eq(product_ids.count)
-        end
-
-        after do
-          ActionController::Base.perform_caching = false
         end
       end
 
@@ -96,8 +95,9 @@ module Spree
       end
 
       context 'pagination' do
+        before { create(:product) }
+
         it 'can select the next page of products' do
-          second_product = create(:product)
           api_get :index, page: 2, per_page: 1
           expect(json_response['products'].first).to have_attributes(show_attributes)
           expect(json_response['total_count']).to eq(2)
@@ -106,7 +106,6 @@ module Spree
         end
 
         it 'can control the page size through a parameter' do
-          create(:product)
           api_get :index, per_page: 1
           expect(json_response['count']).to eq(1)
           expect(json_response['total_count']).to eq(2)
@@ -125,15 +124,15 @@ module Spree
       # regression test for https://github.com/spree/spree/issues/8207
       it 'can sort products by date' do
         first_product = create(:product, created_at: Time.current - 1.month)
-        second_product = create(:product, created_at: Time.current)
+        create(:product, created_at: Time.current) # second_product
         api_get :index, q: { s: 'created_at asc' }
         expect(json_response['products'].first['id']).to eq(first_product.id)
       end
 
       it 'gets a single product' do
-        product.master.images.create!(attachment: image('thinking-cat.jpg'))
+        create_image(product.master, image('thinking-cat.jpg'))
         create(:variant, product: product)
-        product.variants.first.images.create!(attachment: image('thinking-cat.jpg'))
+        create_image(product.variants.first, image('thinking-cat.jpg'))
         product.set_property('spree', 'rocks')
         product.taxons << create(:taxon)
 
@@ -166,13 +165,13 @@ module Spree
       context 'tracking is disabled' do
         before { Config.track_inventory_levels = false }
 
+        after { Config.track_inventory_levels = true }
+
         it 'still displays valid json with total_on_hand Float::INFINITY' do
           api_get :show, id: product.to_param
           expect(response).to be_ok
           expect(json_response[:total_on_hand]).to eq nil
         end
-
-        after { Config.track_inventory_levels = true }
       end
 
       context 'finds a product by slug first then by id' do
@@ -270,9 +269,9 @@ module Spree
 
         it 'can create a new product with embedded product_properties' do
           product_data[:product_properties_attributes] = [{
-              property_name: 'fabric',
-              value: 'cotton'
-            }]
+            property_name: 'fabric',
+            value: 'cotton'
+          }]
 
           api_post :create, product: product_data
 
@@ -403,6 +402,103 @@ module Spree
         api_delete :destroy, id: product.to_param
         expect(response.status).to eq(204)
         expect(product.reload.deleted_at).not_to be_nil
+      end
+    end
+
+    describe '#find_product' do
+      let(:products) { Spree::Product.all }
+
+      def send_request
+        api_get :show, id: product.id
+      end
+
+      before { allow(controller).to receive(:product_scope).and_return(products) }
+
+      context 'product found using friendly_id' do
+        before do
+          allow(products).to receive(:friendly).and_return(products)
+          allow(products).to receive(:find).with(product.id.to_s).and_return(product)
+        end
+
+        describe 'expects to receive' do
+          after { send_request }
+
+          it { expect(controller).to receive(:product_scope).and_return(products) }
+          it { expect(products).to receive(:friendly).and_return(products) }
+          it { expect(products).to receive(:find).with(product.id.to_s).and_return(product) }
+        end
+
+        describe 'assigns' do
+          before { send_request }
+
+          it { expect(assigns(:product)).to eq(product) }
+        end
+
+        describe 'response' do
+          before { send_request }
+
+          it { expect(response).to have_http_status(:ok) }
+          it { expect(json_response[:id]).to eq(product.id) }
+          it { expect(json_response[:name]).to eq(product.name) }
+        end
+      end
+
+      context 'product not found using friendly_id, but found in normal scope using id' do
+        before do
+          allow(products).to receive(:friendly).and_return(products)
+          allow(products).to receive(:find).with(product.id.to_s).and_raise(ActiveRecord::RecordNotFound)
+          allow(products).to receive(:find_by).with(id: product.id.to_s).and_return(product)
+        end
+
+        describe 'expects to receive' do
+          after { send_request }
+
+          it { expect(controller).to receive(:product_scope).and_return(products) }
+          it { expect(products).to receive(:friendly).and_return(products) }
+          it { expect(products).to receive(:find_by).with(id: product.id.to_s).and_return(product) }
+        end
+
+        describe 'assigns' do
+          before { send_request }
+
+          it { expect(assigns(:product)).to eq(product) }
+        end
+
+        describe 'response' do
+          before { send_request }
+
+          it { expect(response).to have_http_status(:ok) }
+          it { expect(json_response[:id]).to eq(product.id) }
+          it { expect(json_response[:name]).to eq(product.name) }
+        end
+      end
+
+      context 'product not found' do
+        before do
+          allow(products).to receive(:friendly).and_return(products)
+          allow(products).to receive(:find).with(product.id.to_s).and_raise(ActiveRecord::RecordNotFound)
+          allow(products).to receive(:find_by).with(id: product.id.to_s).and_return(nil)
+        end
+
+        describe 'expects to receive' do
+          after { send_request }
+
+          it { expect(controller).to receive(:product_scope).and_return(products) }
+          it { expect(products).to receive(:friendly).and_return(products) }
+          it { expect(products).to receive(:find_by).with(id: product.id.to_s).and_return(nil) }
+        end
+
+        describe 'assigns' do
+          before { send_request }
+
+          it { expect(assigns(:product)).to eq(nil) }
+        end
+
+        describe 'response' do
+          before { send_request }
+
+          it { assert_not_found! }
+        end
       end
     end
   end

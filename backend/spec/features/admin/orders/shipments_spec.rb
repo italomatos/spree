@@ -20,7 +20,7 @@ describe 'Shipments', type: :feature do
   end
 
   context 'shipping an order', js: true do
-    before(:each) do
+    before do
       visit spree.admin_orders_path
       within_row(1) do
         click_link 'R100'
@@ -29,16 +29,15 @@ describe 'Shipments', type: :feature do
 
     it 'can ship a completed order' do
       click_on 'Ship'
-      wait_for_ajax
 
-      expect(page).to have_content('shipped package')
+      expect(page).to have_content("shipped\npackage")
       expect(order.reload.shipment_state).to eq('shipped')
     end
   end
 
   context 'moving variants between shipments', js: true do
-    let!(:la) { create(:stock_location, name: 'LA') }
-    before(:each) do
+    before do
+      create(:stock_location, name: 'LA')
       visit spree.admin_orders_path
       within_row(1) do
         click_link 'R100'
@@ -50,15 +49,17 @@ describe 'Shipments', type: :feature do
 
       within_row(1) { click_icon :split }
       targetted_select2 'LA', from: '#s2id_item_stock_location'
-      click_icon :save
-      wait_for_ajax
-      expect(page.find("#shipment_#{order.shipments.first.id}")).to be_present
+      click_icon :'save-split'
+
+      expect(page).to have_css('#order-form-wrapper div', id: /^shipment_\d$/).exactly(2).times
+      expect(page).to have_css("#shipment_#{order.shipments.first.id}")
 
       within_row(2) { click_icon :split }
       targetted_select2 "LA(#{order.reload.shipments.last.number})", from: '#s2id_item_stock_location'
       click_icon :save
       wait_for_ajax
-      expect(page.find("#shipment_#{order.reload.shipments.last.id}")).to be_present
+
+      expect(page).to have_css("#shipment_#{order.reload.shipments.last.id}")
     end
   end
 end

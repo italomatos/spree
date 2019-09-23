@@ -7,8 +7,8 @@ require 'friendly_id'
 require 'kaminari'
 require 'mail'
 require 'monetize'
-require 'paperclip'
 require 'paranoia'
+require 'mini_magick'
 require 'premailer/rails'
 require 'ransack'
 require 'responders'
@@ -58,6 +58,20 @@ module Spree
     yield(Spree::Config)
   end
 
+  # Used to set dependencies for Spree.
+  #
+  # Example:
+  #
+  #   Spree.dependencies do |dependency|
+  #     dependency.cart_add_item_service = MyCustomAddToCart
+  #   end
+  #
+  # This method is defined within the core gem on purpose.
+  # Some people may only wish to use the Core part of Spree.
+  def self.dependencies
+    yield(Spree::Dependencies)
+  end
+
   module Core
     autoload :ProductFilters, 'spree/core/product_filters'
     autoload :TokenGenerator, 'spree/core/token_generator'
@@ -69,11 +83,7 @@ end
 
 require 'spree/core/version'
 
-require 'spree/core/environment_extension'
-require 'spree/core/environment/calculators'
-require 'spree/core/environment'
 require 'spree/core/number_generator'
-require 'spree/promo/environment'
 require 'spree/migrations'
 require 'spree/core/engine'
 
@@ -81,13 +91,15 @@ require 'spree/i18n'
 require 'spree/localized_number'
 require 'spree/money'
 require 'spree/permitted_attributes'
+require 'spree/service_module'
+require 'spree/dependencies_helper'
 
 require 'spree/core/importer'
+require 'spree/core/query_filters'
 require 'spree/core/product_duplicator'
 require 'spree/core/controller_helpers/auth'
 require 'spree/core/controller_helpers/common'
 require 'spree/core/controller_helpers/order'
-require 'spree/core/controller_helpers/respond_with'
 require 'spree/core/controller_helpers/search'
 require 'spree/core/controller_helpers/store'
 require 'spree/core/controller_helpers/strong_parameters'

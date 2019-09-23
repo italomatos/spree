@@ -1,27 +1,27 @@
 require 'spec_helper'
 
-feature 'Promotion with option value rule' do
+describe 'Promotion with option value rule', type: :feature do
   stub_authorization!
 
-  given(:variant) { create :variant }
-  given!(:product) { variant.product }
-  given!(:option_value) { variant.option_values.first }
+  let(:variant) { create :variant }
+  let!(:product) { variant.product }
+  let!(:option_value) { variant.option_values.first }
 
-  given(:promotion) { create :promotion }
+  let(:promotion) { create :promotion }
 
-  background do
+  before do
     visit spree.edit_admin_promotion_path(promotion)
   end
 
-  scenario 'adding an option value rule', js: true do
+  it 'adding an option value rule', js: true do
     select2 'Option Value(s)', from: 'Add rule of type'
     within('#rule_fields') { click_button 'Add' }
 
     within('#rules .promotion-block') do
       click_button 'Add'
 
-      expect(page.body).to have_content('Product')
-      expect(page.body).to have_content('Option Values')
+      expect(page).to have_content('Product')
+      expect(page).to have_content('Option Values')
     end
 
     within('.promo-rule-option-value') do
@@ -32,6 +32,7 @@ feature 'Promotion with option value rule' do
       )
     end
 
+    wait_for { !page.has_button?('Update') }
     within('#rules_container') { click_button 'Update' }
 
     first_rule = promotion.rules.reload.first
@@ -40,9 +41,10 @@ feature 'Promotion with option value rule' do
   end
 
   context 'with an existing option value rule' do
-    given(:variant1) { create :variant }
-    given(:variant2) { create :variant }
-    background do
+    let(:variant1) { create :variant }
+    let(:variant2) { create :variant }
+
+    before do
       rule = Spree::Promotion::Rules::OptionValue.new
       rule.promotion = promotion
       rule.preferred_eligible_values = Hash[
@@ -54,11 +56,12 @@ feature 'Promotion with option value rule' do
       visit spree.edit_admin_promotion_path(promotion)
     end
 
-    scenario 'deleting a product', js: true do
+    it 'deleting a product', js: true do
       within('.promo-rule-option-value:last-child') do
         find('.delete').click
       end
 
+      wait_for { !page.has_button?('Update') }
       within('#rule_fields') { click_button 'Update' }
 
       first_rule = promotion.rules.reload.first

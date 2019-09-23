@@ -26,10 +26,10 @@ module Spree
               }
             }
           }
-          spree_post :create, attributes
+          post :create, params: attributes
         end
 
-        it 'should process payment correctly' do
+        it 'processes payment correctly' do
           expect(order.payments.count).to eq(1)
           expect(response).to redirect_to(spree.admin_order_payments_path(order))
           expect(order.reload.state).to eq('complete')
@@ -48,7 +48,7 @@ module Spree
         end
 
         it 'loads backend payment methods' do
-          spree_get :new, order_id: order.number
+          get :new, params: { order_id: order.number }
           expect(response.status).to eq(200)
           expect(assigns[:payment_methods]).to include(@payment_method)
         end
@@ -62,7 +62,7 @@ module Spree
 
         context 'order does not have payments' do
           it 'redirect to new payments page' do
-            spree_get :index, amount: 100, order_id: order.number
+            get :index, params: { amount: 100, order_id: order.number }
             expect(response).to redirect_to(spree.new_admin_order_payment_path(order))
           end
         end
@@ -73,7 +73,7 @@ module Spree
           end
 
           it 'shows the payments page' do
-            spree_get :index, amount: 100, order_id: order.number
+            get :index, params: { amount: 100, order_id: order.number }
             expect(response.code).to eq '200'
           end
         end
@@ -85,8 +85,8 @@ module Spree
           order.save
         end
 
-        it 'should redirect to the customer details page' do
-          spree_get :index, amount: 100, order_id: order.number
+        it 'redirects to the customer details page' do
+          get :index, params: { amount: 100, order_id: order.number }
           expect(response).to redirect_to(spree.edit_admin_order_customer_path(order))
         end
       end

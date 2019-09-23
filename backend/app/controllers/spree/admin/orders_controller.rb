@@ -2,7 +2,7 @@ module Spree
   module Admin
     class OrdersController < Spree::Admin::BaseController
       before_action :initialize_order_events
-      before_action :load_order, only: [:edit, :update, :cancel, :resume, :approve, :resend, :open_adjustments, :close_adjustments, :cart]
+      before_action :load_order, only: [:edit, :update, :cancel, :resume, :approve, :resend, :open_adjustments, :close_adjustments, :cart, :store, :set_store]
 
       respond_to :html
 
@@ -24,7 +24,7 @@ module Spree
         if params[:q][:created_at_gt].present?
           params[:q][:created_at_gt] = begin
                                          Time.zone.parse(params[:q][:created_at_gt]).beginning_of_day
-                                       rescue
+                                       rescue StandardError
                                          ''
                                        end
         end
@@ -32,7 +32,7 @@ module Spree
         if params[:q][:created_at_lt].present?
           params[:q][:created_at_lt] = begin
                                          Time.zone.parse(params[:q][:created_at_lt]).end_of_day
-                                       rescue
+                                       rescue StandardError
                                          ''
                                        end
         end
@@ -75,8 +75,12 @@ module Spree
         end
       end
 
+      def store
+        @stores = Spree::Store.all
+      end
+
       def update
-        if @order.update_attributes(params[:order]) && @order.line_items.present?
+        if @order.update(params[:order]) && @order.line_items.present?
           @order.update_with_updater!
           unless @order.completed?
             # Jump to next step if order is not completed.
@@ -115,7 +119,7 @@ module Spree
       end
 
       def open_adjustments
-        adjustments = @order.all_adjustments.closed
+        adjustments = @order.all_adjustments.finalized
         adjustments.update_all(state: 'open')
         flash[:success] = Spree.t(:all_adjustments_opened)
 
@@ -123,11 +127,21 @@ module Spree
       end
 
       def close_adjustments
-        adjustments = @order.all_adjustments.open
+        adjustments = @order.all_adjustments.not_finalized
         adjustments.update_all(state: 'closed')
         flash[:success] = Spree.t(:all_adjustments_closed)
 
         respond_with(@order) { |format| format.html { redirect_back fallback_location: spree.admin_order_adjustments_url(@order) } }
+      end
+
+      def set_store
+        if @order.update(store_id: params[:order][:store_id])
+          flash[:success] = flash_message_for(@order, :successfully_updated)
+        else
+          flash[:error] = @order.errors.full_messages.join(', ')
+        end
+
+        redirect_to store_admin_order_url(@order)
       end
 
       private

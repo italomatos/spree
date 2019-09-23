@@ -3,9 +3,9 @@ require 'spec_helper'
 module Spree
   module PromotionHandler
     describe Coupon, type: :model do
-      let(:order) { double('Order', coupon_code: '10off').as_null_object }
-
       subject { Coupon.new(order) }
+
+      let(:order) { double('Order', coupon_code: '10off').as_null_object }
 
       it 'returns self in apply' do
         expect(subject.apply).to be_a Coupon
@@ -15,31 +15,32 @@ module Spree
         let(:coupon) { Coupon.new(order) }
 
         describe '#set_success_code' do
-          let(:status) { :coupon_code_applied }
           subject { coupon.set_success_code status }
 
-          it 'should have status_code' do
+          let(:status) { :coupon_code_applied }
+
+          it 'has status_code' do
             subject
             expect(coupon.status_code).to eq(status)
           end
 
-          it 'should have success message' do
+          it 'has success message' do
             subject
             expect(coupon.success).to eq(Spree.t(status))
           end
         end
 
         describe '#set_error_code' do
-          let(:status) { :coupon_code_not_found }
-
           subject { coupon.set_error_code status }
 
-          it 'should have status_code' do
+          let(:status) { :coupon_code_not_found }
+
+          it 'has status_code' do
             subject
             expect(coupon.status_code).to eq(status)
           end
 
-          it 'should have error message' do
+          it 'has error message' do
             subject
             expect(coupon.error).to eq(Spree.t(status))
           end
@@ -101,6 +102,7 @@ module Spree
             # Regression test for #4211
             context 'with incorrect coupon code casing' do
               before { allow(order).to receive_messages coupon_code: '10OFF' }
+
               it 'successfully activates promo' do
                 expect(order.total).to eq(130)
                 subject.apply
@@ -121,9 +123,9 @@ module Spree
               allow(order).to receive_messages coupon_code: '10off'
               calculator = Calculator::FlatRate.new(preferred_amount: 10)
               general_promo = Promotion.create name: 'General Promo'
-              general_action = Promotion::Actions::CreateItemAdjustments.create(promotion: general_promo, calculator: calculator)
+              Promotion::Actions::CreateItemAdjustments.create(promotion: general_promo, calculator: calculator) # general_action
 
-              order.contents.add create(:variant)
+              Spree::Cart::AddItem.call(order: order, variant: create(:variant))
             end
 
             # regression spec for #4515
@@ -136,6 +138,7 @@ module Spree
 
         context 'with a free-shipping adjustment action' do
           let!(:action) { Promotion::Actions::FreeShipping.create(promotion: promotion) }
+
           context 'right coupon code given' do
             let(:order) { create(:order_with_line_items, line_items_count: 3) }
 
@@ -160,6 +163,7 @@ module Spree
 
         context 'with a whole-order adjustment action' do
           let!(:action) { Promotion::Actions::CreateAdjustment.create(promotion: promotion, calculator: calculator) }
+
           context 'right coupon given' do
             let(:order) { create(:order) }
             let(:calculator) { Calculator::FlatRate.new(preferred_amount: 10) }
@@ -220,7 +224,7 @@ module Spree
         end
 
         context 'for an order with taxable line items' do
-          before(:each) do
+          before do
             @country = create(:country)
             @zone = create(:zone, name: 'Country Zone', default_tax: true, zone_members: [])
             @zone.zone_members.create(zoneable: @country)
@@ -235,13 +239,15 @@ module Spree
             @order = Spree::Order.create!
             allow(@order).to receive_messages coupon_code: '10off'
           end
+
           context 'and the product price is less than promo discount' do
-            before(:each) do
+            before do
               3.times do |_i|
                 taxable = create(:product, tax_category: @category, price: 9.0)
-                @order.contents.add(taxable.master, 1)
+                Spree::Cart::AddItem.call(order: @order, variant: taxable.master)
               end
             end
+
             it 'successfully applies the promo' do
               # 3 * (9 + 0.9)
               expect(@order.total).to eq(29.7)
@@ -253,13 +259,15 @@ module Spree
               expect(@order.additional_tax_total).to eq(0)
             end
           end
+
           context 'and the product price is greater than promo discount' do
-            before(:each) do
+            before do
               3.times do |_i|
                 taxable = create(:product, tax_category: @category, price: 11.0)
-                @order.contents.add(taxable.master, 2)
+                Spree::Cart::AddItem.call(order: @order, variant: taxable.master, quantity: 2)
               end
             end
+
             it 'successfully applies the promo' do
               # 3 * (22 + 2.2)
               expect(@order.total.to_f).to eq(72.6)
@@ -271,8 +279,9 @@ module Spree
               expect(@order.additional_tax_total).to eq(3.6)
             end
           end
+
           context 'and multiple quantity per line item' do
-            before(:each) do
+            before do
               twnty_off = Promotion.create name: 'promo', code: '20off'
               twnty_off_calc = Calculator::FlatRate.new(preferred_amount: 20)
               Promotion::Actions::CreateItemAdjustments.create(promotion: twnty_off,
@@ -282,9 +291,10 @@ module Spree
               allow(@order).to receive_messages coupon_code: '20off'
               3.times do |_i|
                 taxable = create(:product, tax_category: @category, price: 10.0)
-                @order.contents.add(taxable.master, 2)
+                Spree::Cart::AddItem.call(order: @order, variant: taxable.master, quantity: 2)
               end
             end
+
             it 'successfully applies the promo' do
               # 3 * ((2 * 10) + 2.0)
               expect(@order.total.to_f).to eq(66)
@@ -300,10 +310,14 @@ module Spree
 
         context 'with a CreateLineItems action' do
           let!(:variant) { create(:variant) }
-          let!(:action) { Promotion::Actions::CreateLineItems.create(promotion: promotion, promotion_action_line_items_attributes: { '0': { variant_id: variant.id } }) }
+          let!(:action) { Promotion::Actions::CreateLineItems.create(promotion: promotion) }
           let(:order) { create(:order) }
 
           before do
+            action.promotion_action_line_items.create(
+              variant: variant,
+              quantity: 1
+            )
             allow(order).to receive_messages(coupon_code: '10off')
           end
 

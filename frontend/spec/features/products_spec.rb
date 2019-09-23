@@ -1,5 +1,3 @@
-# encoding: utf-8
-
 require 'spec_helper'
 
 describe 'Visiting Products', type: :feature, inaccessible: true do
@@ -9,16 +7,19 @@ describe 'Visiting Products', type: :feature, inaccessible: true do
     ((first_store = Spree::Store.first) && first_store.name).to_s
   end
 
-  before(:each) do
+  before do
     visit spree.root_path
+    allow(ENV).to receive(:[]).and_call_original
   end
 
-  it 'should be able to show the shopping cart after adding a product to it' do
+  it 'is able to show the shopping cart after adding a product to it', js: true do
     click_link 'Ruby on Rails Ringer T-Shirt'
     expect(page).to have_content('$19.99')
 
+    expect(page).to have_selector('form#add-to-cart-form')
+    expect(page).to have_selector(:button, id: 'add-to-cart-button', disabled: false)
     click_button 'add-to-cart-button'
-    expect(page).to have_content('Shopping Cart')
+    expect(page).to have_content(Spree.t(:shopping_cart))
   end
 
   describe 'correct displaying of microdata' do
@@ -53,7 +54,7 @@ describe 'Visiting Products', type: :feature, inaccessible: true do
     let(:jersey) { Spree::Product.find_by(name: 'Ruby on Rails Baseball Jersey') }
     let(:metas) { { meta_description: 'Brand new Ruby on Rails Jersey', meta_title: 'Ruby on Rails Baseball Jersey Buy High Quality Geek Apparel', meta_keywords: 'ror, jersey, ruby' } }
 
-    it 'should return the correct title when displaying a single product' do
+    it 'returns the correct title when displaying a single product' do
       click_link jersey.name
       expect(page).to have_title('Ruby on Rails Baseball Jersey - ' + store_name)
       within('div#product-description') do
@@ -64,20 +65,20 @@ describe 'Visiting Products', type: :feature, inaccessible: true do
     end
 
     it 'displays metas' do
-      jersey.update_attributes metas
+      jersey.update metas
       click_link jersey.name
       expect(page).to have_meta(:description, 'Brand new Ruby on Rails Jersey')
       expect(page).to have_meta(:keywords, 'ror, jersey, ruby')
     end
 
     it 'displays title if set' do
-      jersey.update_attributes metas
+      jersey.update metas
       click_link jersey.name
       expect(page).to have_title('Ruby on Rails Baseball Jersey Buy High Quality Geek Apparel')
     end
 
     it "doesn't use meta_title as heading on page" do
-      jersey.update_attributes metas
+      jersey.update metas
       click_link jersey.name
       within('h1') do
         expect(page).to have_content(jersey.name)
@@ -86,7 +87,7 @@ describe 'Visiting Products', type: :feature, inaccessible: true do
     end
 
     it 'uses product name in title when meta_title set to empty string' do
-      jersey.update_attributes meta_title: ''
+      jersey.update meta_title: ''
       click_link jersey.name
       expect(page).to have_title('Ruby on Rails Baseball Jersey - ' + store_name)
     end
@@ -143,11 +144,11 @@ describe 'Visiting Products', type: :feature, inaccessible: true do
     end
   end
 
-  it 'should be able to search for a product' do
+  it 'is able to search for a product' do
     fill_in 'keywords', with: 'shirt'
     click_button 'Search'
 
-    expect(page.all('#products .product-list-item').size).to eq(1)
+    expect(page).to have_css('#products .product-list-item').once
   end
 
   context 'a product with variants' do
@@ -156,18 +157,16 @@ describe 'Visiting Products', type: :feature, inaccessible: true do
     let!(:variant) { build(:variant, price: 5.59, product: product, option_values: []) }
 
     before do
-      # Need to have two images to trigger the error
-      image = File.open(File.expand_path('../../fixtures/thinking-cat.jpg', __FILE__))
-      product.images.create!(attachment: image)
-      product.images.create!(attachment: image)
+      image = File.open(File.expand_path('../fixtures/thinking-cat.jpg', __dir__))
+      create_image(product, image)
 
       product.option_types << option_value.option_type
       variant.option_values << option_value
       variant.save!
     end
 
-    it 'should be displayed' do
-      expect { click_link product.name }.to_not raise_error
+    it 'is displayed' do
+      expect { click_link product.name }.not_to raise_error
     end
 
     it 'displays price of first variant listed', js: true do
@@ -203,12 +202,11 @@ describe 'Visiting Products', type: :feature, inaccessible: true do
     let(:variant2) { create(:variant, product: product, price: 10.99) }
 
     before do
-      image = File.open(File.expand_path('../../fixtures/thinking-cat.jpg', __FILE__))
-      variant1.images.create!(attachment: image)
-      variant2.images.create!(attachment: image)
+      image = File.open(File.expand_path('../fixtures/thinking-cat.jpg', __dir__))
+      create_image(variant1, image)
     end
 
-    it 'should not display no image available' do
+    it 'does not display no image available' do
       visit spree.root_path
       expect(page).to have_xpath("//img[contains(@src,'thinking-cat')]")
     end
@@ -259,54 +257,52 @@ describe 'Visiting Products', type: :feature, inaccessible: true do
     end
   end
 
-  it 'should be able to hide products without price' do
-    expect(page.all('#products .product-list-item').size).to eq(9)
+  it 'is able to hide products without price' do
+    expect(page).to have_css('#products .product-list-item').exactly(9).times
     Spree::Config.show_products_without_price = false
     Spree::Config.currency = 'CAN'
     visit spree.root_path
-    expect(page.all('#products .product-list-item').size).to eq(0)
+    expect(page).not_to have_css('#products .product-list-item')
   end
 
-  it 'should be able to display products priced under 10 dollars' do
+  it 'is able to display products priced under 10 dollars' do
     within(:css, '#taxonomies') { click_link 'Ruby on Rails' }
     check 'Price_Range_Under_$10.00'
     within(:css, '#sidebar_products_search') { click_button 'Search' }
     expect(page).to have_content('No products found')
   end
 
-  it 'should be able to display products priced between 15 and 18 dollars' do
+  it 'is able to display products priced between 15 and 18 dollars' do
     within(:css, '#taxonomies') { click_link 'Ruby on Rails' }
     check 'Price_Range_$15.00_-_$18.00'
     within(:css, '#sidebar_products_search') { click_button 'Search' }
 
-    expect(page.all('#products .product-list-item').size).to eq(3)
+    expect(page).to have_css('#products .product-list-item').exactly(3).times
     tmp = page.all('#products .product-list-item a').map(&:text).flatten.compact
     tmp.delete('')
     expect(tmp.sort!).to eq(['Ruby on Rails Mug', 'Ruby on Rails Stein', 'Ruby on Rails Tote'])
   end
 
-  it 'should be able to display products priced between 15 and 18 dollars across multiple pages' do
+  it 'is able to display products priced between 15 and 18 dollars across multiple pages' do
     Spree::Config.products_per_page = 2
     within(:css, '#taxonomies') { click_link 'Ruby on Rails' }
     check 'Price_Range_$15.00_-_$18.00'
     within(:css, '#sidebar_products_search') { click_button 'Search' }
 
-    expect(page.all('#products .product-list-item').size).to eq(2)
-    products = page.all('#products .product-list-item span[itemprop=name]')
-    expect(products.count).to eq(2)
+    expect(page).to have_css('#products .product-list-item').twice
+    expect(page).to have_css('#products .product-list-item span[itemprop=name]').twice
 
     find('.pagination .next a').click
-    products = page.all('#products .product-list-item span[itemprop=name]')
-    expect(products.count).to eq(1)
+    expect(page).to have_css('#products .product-list-item span[itemprop=name]').once
   end
 
-  it 'should be able to display products priced 18 dollars and above' do
+  it 'is able to display products priced 18 dollars and above' do
     within(:css, '#taxonomies') { click_link 'Ruby on Rails' }
     check 'Price_Range_$18.00_-_$20.00'
     check 'Price_Range_$20.00_or_over'
     within(:css, '#sidebar_products_search') { click_button 'Search' }
 
-    expect(page.all('#products .product-list-item').size).to eq(4)
+    expect(page).to have_css('#products .product-list-item').exactly(4).times
     tmp = page.all('#products .product-list-item a').map(&:text).flatten.compact
     tmp.delete('')
     expect(tmp.sort!).to eq(['Ruby on Rails Bag',
@@ -315,15 +311,18 @@ describe 'Visiting Products', type: :feature, inaccessible: true do
                              'Ruby on Rails Ringer T-Shirt'])
   end
 
-  it 'should be able to put a product without a description in the cart' do
+  it 'is able to put a product without a description in the cart', js: true do
     product = FactoryBot.create(:base_product, description: nil, name: 'Sample', price: '19.99')
     visit spree.product_path(product)
+    expect(page).to have_selector('form#add-to-cart-form')
+    expect(page).to have_button(id: 'add-to-cart-button', disabled: false)
     expect(page).to have_content 'This product has no description'
     click_button 'add-to-cart-button'
+    expect(page).to have_content(Spree.t(:shopping_cart))
     expect(page).to have_content 'This product has no description'
   end
 
-  it "shouldn't be able to put a product without a current price in the cart" do
+  it 'is not able to put a product without a current price in the cart' do
     product = FactoryBot.create(:base_product, description: nil, name: 'Sample', price: '19.99')
     Spree::Config.currency = 'CAN'
     Spree::Config.show_products_without_price = true
@@ -332,13 +331,65 @@ describe 'Visiting Products', type: :feature, inaccessible: true do
     expect(page).not_to have_content 'add-to-cart-button'
   end
 
-  it 'should return the correct title when displaying a single product' do
+  it 'returns the correct title when displaying a single product' do
     product = Spree::Product.find_by(name: 'Ruby on Rails Baseball Jersey')
     click_link product.name
 
     within('div#product-description') do
       within('h1.product-title') do
         expect(page).to have_content('Ruby on Rails Baseball Jersey')
+      end
+    end
+  end
+
+  context 'when rendering the product description' do
+    context 'when <script> tag exists' do
+      it 'prevents the script from running', js: true do
+        description = '<script>window.alert("Message")</script>'
+        product = FactoryBot.create(:base_product, description: description, name: 'Sample', price: '19.99')
+
+        accept_alert(wait: 1) { visit spree.product_path(product) }
+        fail "XSS alert exists"
+
+      rescue Capybara::ModalNotFound
+      end
+
+      it 'returns sanitized js text in html' do
+        description = '<script>window.alert("Message")</script>'
+        product = FactoryBot.create(:base_product, description: description, name: 'Sample', price: '19.99')
+        visit spree.product_path(product)
+
+        within('div#product-description') do
+          within('[data-hook=description]') do
+            expect(text).to eq('window.alert("Message")')
+          end
+        end
+      end
+    end
+
+    context 'when <a> tag exists' do
+      it 'returns <a> tag in html' do
+        description = '<a href="example.com">link</a>'
+        product = FactoryBot.create(:base_product, description: description, name: 'Sample', price: '19.99')
+        visit spree.product_path(product)
+
+        within('div#product-description') do
+          node = find('[data-hook=description]')
+          expect(node).to have_selector 'a'
+        end
+      end
+    end
+
+    context 'when there are multiple lines' do
+      it 'returns <p> tag in html' do
+        description = "first paragraph\n\nsecond paragraph"
+        product = FactoryBot.create(:base_product, description: description, name: 'Sample', price: '19.99')
+        visit spree.product_path(product)
+
+        within('div#product-description') do
+          node = find('[data-hook=description]')
+          expect(node).to have_selector 'p'
+        end
       end
     end
   end

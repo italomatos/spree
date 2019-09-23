@@ -42,12 +42,12 @@ describe Spree::Order, type: :model do
     it '.remove_transition' do
       options = { from: transitions.first.keys.first, to: transitions.first.values.first }
       expect(Spree::Order).to receive_messages(
-        removed_transitions:    [],
+        removed_transitions: [],
         next_event_transitions: transitions.dup
       )
       expect(Spree::Order.remove_transition(options)).to be_truthy
       expect(Spree::Order.removed_transitions).to eql([options])
-      expect(Spree::Order.next_event_transitions).to_not include(transitions.first)
+      expect(Spree::Order.next_event_transitions).not_to include(transitions.first)
     end
 
     it '.remove_transition when contract was broken' do
@@ -94,6 +94,7 @@ describe Spree::Order, type: :model do
 
       context 'when payment not required' do
         before { allow(order).to receive_messages payment_required?: false }
+
         specify do
           expect(order.checkout_steps).to eq(%w(address delivery complete))
         end
@@ -101,6 +102,7 @@ describe Spree::Order, type: :model do
 
       context 'when payment required' do
         before { allow(order).to receive_messages payment_required?: true }
+
         specify do
           expect(order.checkout_steps).to eq(%w(address delivery payment complete))
         end
@@ -130,7 +132,7 @@ describe Spree::Order, type: :model do
 
         it "doesn't raise an error if the default address is invalid" do
           order.user = mock_model(Spree::LegacyUser, ship_address: Spree::Address.new, bill_address: Spree::Address.new)
-          expect { order.next! }.to_not raise_error
+          expect { order.next! }.not_to raise_error
         end
 
         context 'with default addresses' do
@@ -171,7 +173,7 @@ describe Spree::Order, type: :model do
       before do
         order.state = 'address'
         allow(order).to receive(:has_available_payment)
-        shipment = FactoryBot.create(:shipment, order: order)
+        create(:shipment, order: order)
         order.email = 'user@example.com'
         order.save!
       end
@@ -179,7 +181,7 @@ describe Spree::Order, type: :model do
       it 'updates totals' do
         allow(order).to receive_messages(ensure_available_shipping_rates: true)
         line_item = FactoryBot.create(:line_item, price: 10, adjustment_total: 10)
-        line_item.variant.update_attributes!(price: 10)
+        line_item.variant.update!(price: 10)
         order.line_items << line_item
         tax_rate = create(:tax_rate, tax_category: line_item.tax_category, amount: 0.05)
         allow(Spree::TaxRate).to receive_messages match: [tax_rate]
@@ -195,7 +197,7 @@ describe Spree::Order, type: :model do
       it 'updates prices' do
         allow(order).to receive_messages(ensure_available_shipping_rates: true)
         line_item = FactoryBot.create(:line_item, price: 10, adjustment_total: 10)
-        line_item.variant.update_attributes!(price: 20)
+        line_item.variant.update!(price: 20)
         order.line_items << line_item
         tax_rate = create :tax_rate,
                           included_in_price: true,
@@ -219,40 +221,6 @@ describe Spree::Order, type: :model do
         order.next!
         assert_state_changed(order, 'address', 'delivery')
         expect(order.state).to eq('delivery')
-      end
-
-      it 'does not call persist_order_address if there is no address on the order' do
-        # otherwise, it will crash
-        allow(order).to receive_messages(ensure_available_shipping_rates: true)
-
-        order.user = FactoryBot.create(:user)
-        order.save!
-
-        expect(order.user).to_not receive(:persist_order_address).with(order)
-        order.next!
-      end
-
-      it "calls persist_order_address on the order's user" do
-        allow(order).to receive_messages(ensure_available_shipping_rates: true)
-
-        order.user = FactoryBot.create(:user)
-        order.ship_address = FactoryBot.create(:address)
-        order.bill_address = FactoryBot.create(:address)
-        order.save!
-
-        expect(order.user).to receive(:persist_order_address).with(order)
-        order.next!
-      end
-
-      it "does not call persist_order_address on the order's user for a temporary address" do
-        allow(order).to receive_messages(ensure_available_shipping_rates: true)
-
-        order.user = FactoryBot.create(:user)
-        order.temporary_address = true
-        order.save!
-
-        expect(order.user).to_not receive(:persist_order_address)
-        order.next!
       end
 
       context 'cannot transition to delivery' do
@@ -281,9 +249,10 @@ describe Spree::Order, type: :model do
       context 'when order has default selected_shipping_rate_id' do
         let(:shipment) { create(:shipment, order: order) }
         let(:shipping_method) { create(:shipping_method) }
-        let(:shipping_rate) do [
-          Spree::ShippingRate.create!(shipping_method: shipping_method, cost: 10.00, shipment: shipment)
-        ]
+        let(:shipping_rate) do
+          [
+            Spree::ShippingRate.create!(shipping_method: shipping_method, cost: 10.00, shipment: shipment)
+          ]
         end
 
         before do
@@ -294,16 +263,16 @@ describe Spree::Order, type: :model do
 
           allow(order).to receive(:has_available_payment)
           allow(order).to receive(:create_proposed_shipments)
-          allow(order).to receive(:ensure_available_shipping_rates) { true }
+          allow(order).to receive(:ensure_available_shipping_rates).and_return(true)
         end
 
-        it 'should invoke set_shipment_cost' do
+        it 'invokes set_shipment_cost' do
           expect(order).to receive(:set_shipments_cost)
           order.next!
         end
 
-        it 'should update shipment_total' do
-          expect { order.next! }.to change { order.shipment_total }.by(10.00)
+        it 'updates shipment_total' do
+          expect { order.next! }.to change(order, :shipment_total).by(10.00)
         end
       end
     end
@@ -411,7 +380,7 @@ describe Spree::Order, type: :model do
 
           context 'line_items are in stock' do
             before do
-              expect(order).to receive(:process_payments!).once { true }
+              expect(order).to receive(:process_payments!).once.and_return(true)
             end
 
             it 'transitions to complete' do
@@ -423,10 +392,10 @@ describe Spree::Order, type: :model do
 
           context 'line_items are not in stock' do
             before do
-              expect(order).to receive(:ensure_line_items_are_in_stock).once { false }
+              expect(order).to receive(:ensure_line_items_are_in_stock).once.and_return(false)
             end
 
-            it 'should not receive process_payments!' do
+            it 'does not receive process_payments!' do
               expect(order).not_to receive(:process_payments!)
               order.next
             end
@@ -537,11 +506,11 @@ describe Spree::Order, type: :model do
       Spree::Order.checkout_flow(&@old_checkout_flow)
     end
 
-    it 'should not keep old event transitions when checkout_flow is redefined' do
+    it 'does not keep old event transitions when checkout_flow is redefined' do
       expect(Spree::Order.next_event_transitions).to eq([{ cart: :payment }, { payment: :complete }])
     end
 
-    it 'should not keep old events when checkout_flow is redefined' do
+    it 'does not keep old events when checkout_flow is redefined' do
       state_machine = Spree::Order.state_machine
       expect(state_machine.states.any? { |s| s.name == :address }).to be false
       known_states = state_machine.events[:next].branches.map(&:known_states).flatten
@@ -568,8 +537,8 @@ describe Spree::Order, type: :model do
 
     it 'does not attempt to process payments' do
       allow(order).to receive_message_chain(:line_items, :present?) { true }
-      allow(order).to receive(:ensure_line_items_are_in_stock) { true }
-      allow(order).to receive(:ensure_line_item_variants_are_not_discontinued) { true }
+      allow(order).to receive(:ensure_line_items_are_in_stock).and_return(true)
+      allow(order).to receive(:ensure_line_item_variants_are_not_discontinued).and_return(true)
       expect(order).not_to receive(:payment_required?)
       expect(order).not_to receive(:process_payments!)
       order.next!
@@ -589,7 +558,7 @@ describe Spree::Order, type: :model do
       Spree::Order.checkout_flow(&@old_checkout_flow)
     end
 
-    it 'should maintain removed transitions' do
+    it 'maintains removed transitions' do
       transition = Spree::Order.find_transition(from: :delivery, to: :confirm)
       expect(transition).to be_nil
     end
@@ -607,7 +576,7 @@ describe Spree::Order, type: :model do
       end
 
       it 'goes through checkout without raising error' do
-        expect { OrderWalkthrough.up_to(:complete) }.to_not raise_error
+        expect { OrderWalkthrough.up_to(:complete) }.not_to raise_error
       end
     end
 
@@ -624,7 +593,7 @@ describe Spree::Order, type: :model do
       end
 
       it 'goes through checkout without raising error' do
-        expect { OrderWalkthrough.up_to(:complete) }.to_not raise_error
+        expect { OrderWalkthrough.up_to(:complete) }.not_to raise_error
       end
     end
   end
@@ -641,7 +610,7 @@ describe Spree::Order, type: :model do
       Spree::Order.checkout_flow(&@old_checkout_flow)
     end
 
-    it 'should maintain removed transitions' do
+    it 'maintains removed transitions' do
       transition = Spree::Order.find_transition(from: :delivery, to: :confirm)
       expect(transition).to be_nil
     end
@@ -657,7 +626,7 @@ describe Spree::Order, type: :model do
     let(:params) { {} }
 
     it 'calls update_atributes without order params' do
-      expect(order).to receive(:update_attributes).with({})
+      expect(order).to receive(:update).with({})
       order.update_from_params(params, permitted_params)
     end
 
@@ -725,7 +694,7 @@ describe Spree::Order, type: :model do
       let(:params) { ActionController::Parameters.new(order: { bad_param: 'okay' }) }
 
       it 'does not let through unpermitted attributes' do
-        expect(order).to receive(:update_attributes).with(ActionController::Parameters.new.permit!)
+        expect(order).to receive(:update).with(ActionController::Parameters.new.permit!)
         order.update_from_params(params, permitted_params)
       end
 

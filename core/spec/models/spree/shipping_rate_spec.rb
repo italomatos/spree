@@ -1,5 +1,3 @@
-# encoding: utf-8
-
 require 'spec_helper'
 
 describe Spree::ShippingRate, type: :model do
@@ -21,6 +19,7 @@ describe Spree::ShippingRate, type: :model do
                included_in_price: true,
                zone: default_zone
       end
+
       context 'when the tax rate is from the default zone' do
         before { shipping_rate.tax_rate = default_tax_rate }
 
@@ -50,6 +49,7 @@ describe Spree::ShippingRate, type: :model do
                  included_in_price: true,
                  zone: non_default_zone
         end
+
         before { shipping_rate.tax_rate = non_default_tax_rate }
 
         it "deducts the other zone's VAT from the calculated shipping rate" do
@@ -71,6 +71,7 @@ describe Spree::ShippingRate, type: :model do
 
     context 'when tax is additional to price' do
       let(:tax_rate) { create(:tax_rate, name: 'Sales Tax', amount: 0.1) }
+
       before { shipping_rate.tax_rate = tax_rate }
 
       it 'shows correct tax amount' do
@@ -130,6 +131,36 @@ describe Spree::ShippingRate, type: :model do
       shipping_rate.save
       shipping_rate.reload
       expect(shipping_rate.tax_rate).to eq(tax_rate)
+    end
+  end
+
+  context '#tax_amount' do
+    context 'without tax rate' do
+      it 'returns 0.0' do
+        expect(shipping_rate.tax_amount).to eq(0.0)
+      end
+    end
+  end
+
+  context '#final_price' do
+    let(:free_shipping_promotion) { create(:free_shipping_promotion, code: 'freeship') }
+    let(:order) { shipment.order }
+
+    it 'returns 0 if free shipping promotion is applied' do
+      order.coupon_code = free_shipping_promotion.code
+      Spree::PromotionHandler::Coupon.new(order).apply
+      expect(order.promotions).to include(free_shipping_promotion)
+      expect(shipping_rate.final_price).to eq(0.0)
+    end
+
+    it 'returns 0 if cost is lesser than the discount amount' do
+      allow_any_instance_of(Spree::ShippingRate).to receive_messages(discount_amount: -20.0)
+      expect(shipping_rate.final_price).to eq(0.0)
+    end
+
+    it 'returns cost minus discount amount' do
+      allow_any_instance_of(Spree::ShippingRate).to receive_messages(discount_amount: -5.0)
+      expect(shipping_rate.final_price).to eq(5.0)
     end
   end
 end

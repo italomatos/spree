@@ -5,22 +5,23 @@ describe 'Customer Details', type: :feature, js: true do
 
   let!(:country) { create(:country, name: 'United States of America', iso: 'US') }
   let!(:state) { create(:state, name: 'Alabama', country: country, abbr: 'AL') }
-  let!(:shipping_method) { create(:shipping_method, display_on: 'front_end') }
   let!(:order) { create(:order, state: 'complete', completed_at: '2011-02-01 12:36:15') }
   let!(:product) { create(:product_in_stock) }
-
   # We need a unique name that will appear for the customer dropdown
   let!(:ship_address) { create(:address, country: country, state: state, first_name: 'Rumpelstiltskin') }
   let!(:bill_address) { create(:address, country: country, state: state, first_name: 'Rumpelstiltskin') }
 
   let!(:user) { create(:user, email: 'foobar@example.com', ship_address: ship_address, bill_address: bill_address) }
 
+  before do
+    create(:shipping_method, display_on: 'front_end')
+  end
+
   # Value attribute is dynamically set via JS, so not observable via a CSS/XPath selector
   # As the browser might take time to make the values visible in the dom we need to
   # "intelligiently" wait for that event o prevent a race.
-  def expect_form_value(id, value)
-    node = page.find(id)
-    wait_for_condition { node.value.eql?(value) }
+  def expect_form_value(selector, value)
+    expect(page).to have_css(selector){ |n| n.value.eql?(value) }
   end
 
   context 'brand new order' do
@@ -29,13 +30,16 @@ describe 'Customer Details', type: :feature, js: true do
       visit spree.new_admin_order_path
     end
     # Regression test for #3335 & #5317
+
     it 'associates a user when not using guest checkout' do
       select2_search product.name, from: Spree.t(:name_or_sku)
+
       within('table.stock-levels') do
         fill_in 'variant_quantity', with: 1
         click_icon :add
       end
-      wait_for_ajax
+      expect(page).to have_css('.card', text: 'Order Line Items')
+
       click_link 'Customer'
       targetted_select2 'foobar@example.com', from: '#s2id_customer_search'
       # 5317 - Address prefills using user's default.
@@ -48,6 +52,7 @@ describe 'Customer Details', type: :feature, js: true do
       expect_form_value('#order_bill_address_attributes_country_id', user.bill_address.country_id.to_s)
       expect_form_value('#order_bill_address_attributes_state_id', user.bill_address.state_id.to_s)
       expect_form_value('#order_bill_address_attributes_phone', user.bill_address.phone)
+      wait_for { !page.has_button?('Update') }
       click_button 'Update'
       expect(Spree::Order.last.user).to eq(user)
     end
@@ -77,11 +82,11 @@ describe 'Customer Details', type: :feature, js: true do
         end
 
         click_button 'Update'
-        expect(find_field('order_bill_address_attributes_state_name').value).to eq('Piaui')
+        expect(page).to have_field('order_bill_address_attributes_state_name', with: 'Piaui')
       end
     end
 
-    it 'should be able to update customer details for an existing order' do
+    it 'is able to update customer details for an existing order' do
       order.ship_address = create(:address)
       order.save!
 
@@ -95,11 +100,11 @@ describe 'Customer Details', type: :feature, js: true do
       # Regression test for #2950 + #2433
       # This act should transition the state of the order as far as it will go too
       within('#order_tab_summary') do
-        expect(find('.state').text).to eq('complete')
+        expect(page).to have_css('.state', text: 'complete')
       end
     end
 
-    it 'should show validation errors' do
+    it 'shows validation errors' do
       click_link 'Customer'
       click_button 'Update'
       expect(page).to have_content("Shipping address first name can't be blank")

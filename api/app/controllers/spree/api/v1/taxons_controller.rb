@@ -3,16 +3,14 @@ module Spree
     module V1
       class TaxonsController < Spree::Api::BaseController
         def index
-          if taxonomy
-            @taxons = taxonomy.root.children
-          else
-            if params[:ids]
-              @taxons = Spree::Taxon.includes(:children).accessible_by(current_ability, :read).where(id: params[:ids].split(','))
-            else
-              @taxons = Spree::Taxon.includes(:children).accessible_by(current_ability, :read).order(:taxonomy_id, :lft).ransack(params[:q]).result
-            end
-          end
-
+          @taxons = if taxonomy
+                      taxonomy.root.children
+                    elsif params[:ids]
+                      Spree::Taxon.includes(:children).accessible_by(current_ability).where(id: params[:ids].split(','))
+                    else
+                      Spree::Taxon.includes(:children).accessible_by(current_ability).order(:taxonomy_id, :lft)
+                    end
+          @taxons = @taxons.ransack(params[:q]).result
           @taxons = @taxons.page(params[:page]).per(params[:per_page])
           respond_with(@taxons)
         end
@@ -50,7 +48,7 @@ module Spree
 
         def update
           authorize! :update, taxon
-          if taxon.update_attributes(taxon_params)
+          if taxon.update(taxon_params)
             respond_with(taxon, status: 200, default_template: :show)
           else
             invalid_resource!(taxon)
@@ -76,12 +74,12 @@ module Spree
 
         def taxonomy
           if params[:taxonomy_id].present?
-            @taxonomy ||= Spree::Taxonomy.accessible_by(current_ability, :read).find(params[:taxonomy_id])
+            @taxonomy ||= Spree::Taxonomy.accessible_by(current_ability, :show).find(params[:taxonomy_id])
           end
         end
 
         def taxon
-          @taxon ||= taxonomy.taxons.accessible_by(current_ability, :read).find(params[:id])
+          @taxon ||= taxonomy.taxons.accessible_by(current_ability, :show).find(params[:id])
         end
 
         def taxon_params

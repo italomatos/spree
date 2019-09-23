@@ -11,6 +11,7 @@ describe Spree::Core::ControllerHelpers::Store, type: :controller do
 
   describe '#current_store' do
     let!(:store) { create :store, default: true }
+
     it 'returns current store' do
       expect(controller.current_store).to eq store
     end
@@ -28,7 +29,7 @@ describe Spree::Core::ControllerHelpers::Store, type: :controller do
 
       context 'when there is no current order' do
         it 'returns the default tax zone' do
-          is_expected.to include(tax_zone: default_zone)
+          expect(subject).to include(tax_zone: default_zone)
         end
       end
 

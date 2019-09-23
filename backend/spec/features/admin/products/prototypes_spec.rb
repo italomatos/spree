@@ -4,7 +4,7 @@ describe 'Prototypes', type: :feature, js: true do
   stub_authorization!
 
   context 'listing prototypes' do
-    it 'should be able to list existing prototypes' do
+    it 'is able to list existing prototypes' do
       create(:property, name: 'model', presentation: 'Model')
       create(:property, name: 'brand', presentation: 'Brand')
       create(:property, name: 'shirt_fabric', presentation: 'Fabric')
@@ -42,7 +42,7 @@ describe 'Prototypes', type: :feature, js: true do
   end
 
   context 'creating a prototype' do
-    it 'should allow an admin to create a new product prototype' do
+    it 'allows an admin to create a new product prototype' do
       visit spree.admin_path
       click_link 'Products'
       click_link 'Prototypes'
@@ -54,8 +54,8 @@ describe 'Prototypes', type: :feature, js: true do
       fill_in 'prototype_name', with: 'male shirts'
       click_button 'Create'
       expect(page).to have_content('successfully created!')
-      click_link 'Products'
-      click_link 'Prototypes'
+
+      visit spree.admin_prototypes_path
       within_row(1) { click_icon :edit }
       fill_in 'prototype_name', with: 'Shirt 99'
       click_button 'Update'
@@ -65,7 +65,7 @@ describe 'Prototypes', type: :feature, js: true do
   end
 
   context 'editing a prototype' do
-    it 'should allow to empty its properties' do
+    it 'allows to empty its properties' do
       model_property = create(:property, name: 'model', presentation: 'Model')
       brand_property = create(:property, name: 'brand', presentation: 'Brand')
 
@@ -89,11 +89,13 @@ describe 'Prototypes', type: :feature, js: true do
 
       click_icon :edit
 
-      expect(find_field('prototype_property_ids').value).to be_empty
+      expect(page).to have_field('prototype_property_ids') do |field|
+        field.empty?
+      end
     end
   end
 
-  it 'should be deletable' do
+  it 'is deletable' do
     shirt_prototype = create(:prototype, name: 'Shirt', properties: [])
     shirt_prototype.taxons << create(:taxon)
 
@@ -101,12 +103,11 @@ describe 'Prototypes', type: :feature, js: true do
     click_link 'Products'
     click_link 'Prototypes'
 
-    within("#spree_prototype_#{shirt_prototype.id}") do
-      page.find('.delete-resource').click
+    accept_confirm do
+      within("#spree_prototype_#{shirt_prototype.id}") do
+        page.find('.delete-resource').click
+      end
     end
-
-    accept_alert do
-      expect(page).to have_content("Prototype \"#{shirt_prototype.name}\" has been successfully removed!")
-    end
+    expect(page).to have_content("Prototype \"#{shirt_prototype.name}\" has been successfully removed!")
   end
 end

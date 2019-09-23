@@ -5,8 +5,8 @@ module Spree
   describe Api::V1::OrdersController, type: :controller do
     render_views
 
-    let!(:order) { create(:order) }
-    let(:variant) { create(:variant) }
+    let!(:order)    { create(:order) }
+    let(:variant)   { create(:variant) }
     let(:line_item) { create(:line_item) }
 
     let(:attributes) do
@@ -43,7 +43,7 @@ module Spree
 
     context 'the current api user is authenticated' do
       let(:current_api_user) { order.user }
-      let(:order) { create(:order, line_items: [line_item]) }
+      let(:order)            { create(:order, line_items: [line_item]) }
 
       it 'can view all of their own orders' do
         api_get :mine
@@ -88,17 +88,17 @@ module Spree
     end
 
     describe 'current' do
-      let(:current_api_user) { order.user }
-      let!(:order) { create(:order, line_items: [line_item]) }
-
       subject do
         api_get :current, format: 'json'
       end
 
+      let(:current_api_user) { order.user }
+      let!(:order) { create(:order, line_items: [line_item]) }
+
       context 'an incomplete order exists' do
         it 'returns that order' do
           expect(JSON.parse(subject.body)['id']).to eq order.id
-          expect(subject).to be_success
+          expect(subject).to be_successful
         end
       end
 
@@ -140,10 +140,10 @@ module Spree
     end
 
     describe 'GET #show' do
-      let(:order) { create :order_with_line_items }
-      let(:adjustment) { FactoryBot.create(:adjustment, order: order) }
-
       subject { api_get :show, id: order.to_param }
+
+      let(:order)      { create :order_with_line_items }
+      let(:adjustment) { FactoryBot.create(:adjustment, order: order) }
 
       before do
         allow_any_instance_of(Order).to receive_messages user: current_api_user
@@ -153,7 +153,7 @@ module Spree
         it 'contains stock information on variant' do
           subject
           variant = json_response['line_items'][0]['variant']
-          expect(variant).to_not be_nil
+          expect(variant).not_to be_nil
           expect(variant['in_stock']).to eq(false)
           expect(variant['total_on_hand']).to eq(0)
           expect(variant['is_backorderable']).to eq(true)
@@ -171,7 +171,7 @@ module Spree
 
           # Test to insure shipment has adjustments
           shipment = json_response['shipments'][0]
-          expect(shipment).to_not be_nil
+          expect(shipment).not_to be_nil
           expect(shipment['adjustments'][0]).not_to be_empty
           expect(shipment['adjustments'][0]['label']).to eq(adjustment.label)
         end
@@ -199,19 +199,20 @@ module Spree
     end
 
     it 'can view an order if the token is known' do
-      api_get :show, id: order.to_param, order_token: order.guest_token
+      api_get :show, id: order.to_param, order_token: order.token
       expect(response.status).to eq(200)
     end
 
     it 'can view an order if the token is passed in header' do
-      request.headers['X-Spree-Order-Token'] = order.guest_token
+      request.headers['X-Spree-Order-Token'] = order.token
       api_get :show, id: order.to_param
       expect(response.status).to eq(200)
     end
 
     context 'with BarAbility registered' do
       before { Spree::Ability.register_ability(::BarAbility) }
-      after { Spree::Ability.remove_ability(::BarAbility) }
+
+      after  { Spree::Ability.remove_ability(::BarAbility) }
 
       it 'can view an order' do
         user = mock_model(Spree::LegacyUser)
@@ -232,7 +233,7 @@ module Spree
     end
 
     it 'can create an order' do
-      api_post :create, order: { line_items: [{ variant_id: variant.to_param, quantity: 5 }] }
+      api_post :create, order: { line_items: { '0' => { variant_id: variant.to_param, quantity: 5 } } }
       expect(response.status).to eq(201)
 
       order = Order.last
@@ -254,23 +255,9 @@ module Spree
       expect(json_response['email']).to eq 'guest@spreecommerce.org'
     end
 
-    # Regression test for #3404
-    it 'can specify additional parameters for a line item' do
-      expect(Order).to receive(:create!).and_return(order = Spree::Order.new)
-      allow(order).to receive(:associate_user!)
-      allow(order).to receive_message_chain(:contents, :add).and_return(line_item = double('LineItem'))
-      expect(line_item).to receive(:update_attributes!).with(hash_including('special' => 'foo'))
-
-      allow(controller).to receive_messages(permitted_line_item_attributes: [:id, :variant_id, :quantity, :special])
-      api_post :create, order: {
-        line_items: [{ variant_id: variant.to_param, quantity: 5, special: 'foo' }]
-      }
-      expect(response.status).to eq(201)
-    end
-
     it 'cannot arbitrarily set the line items price' do
       api_post :create, order: {
-        line_items: [{ price: 33.0, variant_id: variant.to_param, quantity: 5 }]
+        line_items: { '0' => { price: 33.0, variant_id: variant.to_param, quantity: 5 } }
       }
 
       expect(response.status).to eq 201
@@ -290,37 +277,29 @@ module Spree
       end
     end
 
-    # Regression test for #3404
-    it 'does not update line item needlessly' do
-      expect(Order).to receive(:create!).and_return(order = Spree::Order.new)
-      allow(order).to receive(:associate_user!)
-      line_item = double('LineItem')
-      allow(line_item).to receive_messages(save!: line_item)
-      allow(order).to receive_message_chain(:contents, :add).and_return(line_item)
-      expect(line_item).not_to receive(:update_attributes)
-      api_post :create, order: { line_items: [{ variant_id: variant.to_param, quantity: 5 }] }
-    end
-
     it 'can create an order without any parameters' do
       expect { api_post :create }.not_to raise_error
       expect(response.status).to eq(201)
-      order = Order.last
       expect(json_response['state']).to eq('cart')
     end
 
     context 'working with an order' do
-      let(:variant) { create(:variant) }
-      let!(:line_item) { order.contents.add(variant, 1) }
-      let!(:payment_method) { create(:check_payment_method) }
-
+      let(:variant)        { create(:variant) }
+      let!(:line_item)     { Spree::Cart::AddItem.call(order: order, variant: variant).value }
       let(:address_params) { { country_id: country.id } }
-      let(:billing_address) do { firstname: 'Tiago', lastname: 'Motta', address1: 'Av Paulista',
-                                 city: 'Sao Paulo', zipcode: '01310-300', phone: '12345678',
-                                 country_id: country.id }
+      let(:billing_address) do
+        {
+          firstname: 'Tiago', lastname: 'Motta', address1: 'Av Paulista',
+          city: 'Sao Paulo', zipcode: '01310-300', phone: '12345678',
+          country_id: country.id
+        }
       end
-      let(:shipping_address) do { firstname: 'Tiago', lastname: 'Motta', address1: 'Av Paulista',
-                                  city: 'Sao Paulo', zipcode: '01310-300', phone: '12345678',
-                                  country_id: country.id }
+      let(:shipping_address) do
+        {
+          firstname: 'Tiago', lastname: 'Motta', address1: 'Av Paulista',
+          city: 'Sao Paulo', zipcode: '01310-300', phone: '12345678',
+          country_id: country.id
+        }
       end
       let(:country) { create(:country, name: 'Brazil', iso_name: 'BRAZIL', iso: 'BR', iso3: 'BRA', numcode: 76) }
 
@@ -345,7 +324,7 @@ module Spree
             email: 'hublock@spreecommerce.com'
           }
 
-          expect(response).to be_success
+          expect(response).to be_successful
         end
       end
 
@@ -386,14 +365,14 @@ module Spree
 
         expect(response.status).to eq(200)
         expect(json_response['line_items'].count).to eq(1)
-        expect(json_response['line_items'].first['price'].to_f).to_not eq(0)
+        expect(json_response['line_items'].first['price'].to_f).not_to eq(0)
         expect(json_response['line_items'].first['price'].to_f).to eq(line_item.variant.price)
       end
 
       it 'can add billing address' do
         api_put :update, id: order.to_param, order: { bill_address_attributes: billing_address }
 
-        expect(order.reload.bill_address).to_not be_nil
+        expect(order.reload.bill_address).not_to be_nil
       end
 
       it 'receives error message if trying to add billing address with errors' do
@@ -427,7 +406,6 @@ module Spree
 
       it 'can set the user_id for the order' do
         user = Spree.user_class.create
-        original_id = order.user_id
         api_post :update, id: order.to_param, order: { user_id: user.id }
         expect(response.status).to eq 200
         expect(json_response['user_id']).to eq(user.id)
@@ -437,7 +415,6 @@ module Spree
         before { order.create_proposed_shipments }
 
         it 'clears out all existing shipments on line item udpate' do
-          previous_shipments = order.shipments
           api_put :update, id: order.to_param, order: {
             line_items: {
               0 => { id: line_item.id, quantity: 10 }
@@ -464,7 +441,7 @@ module Spree
         end
 
         it 'can list its line items with images' do
-          order.line_items.first.variant.images.create!(attachment: image('thinking-cat.jpg'))
+          create_image(order.line_items.first.variant, image('thinking-cat.jpg'))
 
           api_get :show, id: order.to_param
 
@@ -574,6 +551,7 @@ module Spree
 
       context 'with no orders' do
         before { Spree::Order.delete_all }
+
         it 'still returns a root :orders key' do
           api_get :index
           expect(json_response['orders']).to eq([])
@@ -596,8 +574,10 @@ module Spree
       context 'caching enabled' do
         before do
           ActionController::Base.perform_caching = true
-          3.times { Order.create }
+          create_list(:order, 3)
         end
+
+        after { ActionController::Base.perform_caching = false }
 
         it 'returns unique orders' do
           api_get :index
@@ -606,8 +586,6 @@ module Spree
           expect(orders.count).to be >= 3
           expect(orders.map { |o| o[:id] }).to match_array Order.pluck(:id)
         end
-
-        after { ActionController::Base.perform_caching = false }
       end
 
       it 'lists payments source with gateway info' do
@@ -669,7 +647,6 @@ module Spree
         it 'can create an order without any parameters' do
           expect { api_post :create }.not_to raise_error
           expect(response.status).to eq(201)
-          order = Order.last
           expect(json_response['state']).to eq('cart')
         end
 
@@ -727,6 +704,75 @@ module Spree
           order.reload
           expect(order.approver_id).to eq(current_api_user.id)
           expect(order.considered_risky).to eq(false)
+        end
+      end
+    end
+
+    context 'PUT remove_coupon_code' do
+      let(:order) { create(:order_with_line_items) }
+
+      it 'returns 404 status if promotion does not exist' do
+        api_put :remove_coupon_code, id: order.number,
+                                     order_token: order.token,
+                                     coupon_code: 'example'
+
+        expect(response.status).to eq 404
+      end
+
+      context 'order with discount promotion' do
+        let!(:discount_promo_code) { 'discount' }
+        let!(:discount_promotion) { create(:promotion_with_order_adjustment, code: discount_promo_code) }
+        let(:order_with_discount_promotion) do
+          create(:order_with_line_items, coupon_code: discount_promo_code).tap do |order|
+            Spree::PromotionHandler::Coupon.new(order).apply
+          end
+        end
+
+        it 'removes all order adjustments from order and return status 200' do
+          expect(order_with_discount_promotion.reload.total.to_f).to eq 100.0
+
+          api_put :remove_coupon_code, id: order_with_discount_promotion.number,
+                                       order_token: order_with_discount_promotion.token,
+                                       coupon_code: order_with_discount_promotion.coupon_code
+
+          expect(response.status).to eq 200
+          expect(json_response['success']).to eq Spree.t('adjustments_deleted')
+          expect(order_with_discount_promotion.reload.total.to_f).to eq 110.0
+        end
+      end
+
+      context 'order with line item discount promotion' do
+        let!(:line_item_promo_code) { 'line_item_discount' }
+        let!(:line_item_promotion) { create(:promotion_with_item_adjustment, code: line_item_promo_code) }
+        let(:order_with_line_item_promotion) do
+          create(:order_with_line_items, coupon_code: line_item_promo_code).tap do |order|
+            Spree::PromotionHandler::Coupon.new(order).apply
+          end
+        end
+
+        it 'removes line item adjustments from order and return status 200' do
+          expect(order_with_line_item_promotion.reload.total.to_f).to eq 100.0
+
+          api_put :remove_coupon_code, id: order_with_line_item_promotion.number,
+                                       order_token: order_with_line_item_promotion.token,
+                                       coupon_code: order_with_line_item_promotion.coupon_code
+
+          expect(response.status).to eq 200
+          expect(json_response['success']).to eq Spree.t('adjustments_deleted')
+          expect(order_with_line_item_promotion.reload.total.to_f).to eq 110.0
+        end
+
+        it 'removes line item adjustments only for promotable line item' do
+          order_with_line_item_promotion.line_items << create(:line_item, price: 100)
+          order_with_line_item_promotion.update_with_updater!
+
+          expect(order_with_line_item_promotion.reload.total.to_f).to eq 200.0
+
+          api_put :remove_coupon_code, id: order_with_line_item_promotion.number,
+                                       order_token: order_with_line_item_promotion.token,
+                                       coupon_code: order_with_line_item_promotion.coupon_code
+
+          expect(order_with_line_item_promotion.reload.total.to_f).to eq 210.0
         end
       end
     end

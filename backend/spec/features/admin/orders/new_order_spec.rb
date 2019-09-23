@@ -4,12 +4,12 @@ describe 'New Order', type: :feature do
   let!(:product) { create(:product_in_stock) }
   let!(:state) { create(:state) }
   let!(:user) { create(:user, ship_address: create(:address), bill_address: create(:address)) }
-  let!(:payment_method) { create(:check_payment_method) }
-  let!(:shipping_method) { create(:shipping_method) }
 
   stub_authorization!
 
   before do
+    create(:check_payment_method)
+    create(:shipping_method)
     # create default store
     allow(Spree.user_class).to receive(:find_by).and_return(user)
     create(:store)
@@ -19,13 +19,15 @@ describe 'New Order', type: :feature do
   it 'does check if you have a billing address before letting you add shipments' do
     click_on 'Shipments'
     expect(page).to have_content 'Please fill in customer info'
-    expect(current_path).to eql(spree.edit_admin_order_customer_path(Spree::Order.last))
+    expect(page).to have_current_path(spree.edit_admin_order_customer_path(Spree::Order.last))
   end
 
   it 'completes new order successfully without using the cart', js: true do
     select2_search product.name, from: Spree.t(:name_or_sku)
+
     click_icon :add
-    wait_for_ajax
+    expect(page).to have_css('.card', text: 'Order Line Items')
+
     click_on 'Customer'
     select_customer
 
@@ -36,12 +38,11 @@ describe 'New Order', type: :feature do
     click_on 'Payments'
     click_on 'Update'
 
-    expect(current_path).to eql(spree.admin_order_payments_path(Spree::Order.last))
+    expect(page).to have_current_path(spree.admin_order_payments_path(Spree::Order.last))
     click_icon 'capture'
 
     click_on 'Shipments'
     click_on 'Ship'
-    wait_for_ajax
 
     expect(page).to have_content('shipped')
   end
@@ -85,13 +86,12 @@ describe 'New Order', type: :feature do
       expect(page).to have_css('#stock_details')
     end
 
-    context 'on increase in quantity the product should be removed from order', js: true do
+    context 'on increase in quantity the product should be removed from order' do
       before do
         accept_alert do
           within('table.stock-levels') do
             fill_in 'variant_quantity', with: 2
             click_icon :add
-            wait_for_ajax
           end
         end
       end
@@ -136,14 +136,12 @@ describe 'New Order', type: :feature do
       click_on 'Shipments'
       select2_search product.name, from: Spree.t(:name_or_sku)
       click_icon :add
-      wait_for_ajax
+      expect(page).not_to have_content('Your order is empty')
 
       click_on 'Payments'
       click_on 'Continue'
 
-      within('.additional-info .state') do
-        expect(page).to have_content('complete')
-      end
+      expect(page).to have_css('.additional-info .state', text: 'complete')
     end
   end
 
@@ -153,15 +151,19 @@ describe 'New Order', type: :feature do
       allow(Spree.user_class).to receive(:find_by).and_return(user)
       create(:credit_card, default: true, user: user)
     end
+
     it 'transitions to delivery not to complete' do
       select2_search product.name, from: Spree.t(:name_or_sku)
+
       within('table.stock-levels') do
         fill_in 'variant_quantity', with: 1
         click_icon :add
       end
-      wait_for_ajax
+      expect(page).not_to have_content('Your order is empty')
+
       click_link 'Customer'
       select_customer
+      wait_for { !page.has_button?('Update') }
       click_button 'Update'
       expect(Spree::Order.last.state).to eq 'delivery'
     end

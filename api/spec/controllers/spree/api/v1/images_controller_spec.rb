@@ -5,9 +5,10 @@ module Spree
     render_views
 
     let!(:product) { create(:product) }
-    let!(:attributes) do [:id, :position, :attachment_content_type,
-                          :attachment_file_name, :type, :attachment_updated_at, :attachment_width,
-                          :attachment_height, :alt]
+    let!(:attributes) do
+      [:id, :position, :attachment_content_type,
+       :attachment_file_name, :type, :attachment_updated_at, :attachment_width,
+       :attachment_height, :alt]
     end
 
     before do
@@ -44,7 +45,7 @@ module Spree
       end
 
       context 'working with an existing image' do
-        let!(:product_image) { product.master.images.create!(attachment: image('thinking-cat.jpg')) }
+        let!(:product_image) { create_image(product.master, image('thinking-cat.jpg')) }
 
         it 'can get a single product image' do
           api_get :show, id: product_image.id, product_id: product.id

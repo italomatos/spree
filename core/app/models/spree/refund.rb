@@ -43,7 +43,7 @@ module Spree
     def perform!
       return true if transaction_id.present?
 
-      credit_cents = Spree::Money.new(amount.to_f, currency: payment.currency).money.cents
+      credit_cents = Spree::Money.new(amount.to_f, currency: payment.currency).amount_in_cents
 
       @response = process!(credit_cents)
 
@@ -58,7 +58,7 @@ module Spree
                    payment.payment_method.credit(credit_cents, payment.source, payment.transaction_id, originator: self)
                  else
                    payment.payment_method.credit(credit_cents, payment.transaction_id, originator: self)
-      end
+                 end
 
       unless response.success?
         logger.error(Spree.t(:gateway_error) + "  #{response.to_yaml}")

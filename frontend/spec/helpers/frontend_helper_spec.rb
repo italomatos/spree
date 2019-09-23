@@ -6,7 +6,7 @@ module Spree
     context 'flash_message' do
       let(:flash) { { 'notice' => 'ok', 'foo' => 'foo', 'bar' => 'bar' } }
 
-      it 'should output all flash content' do
+      it 'outputs all flash content' do
         flash_messages
         html = Nokogiri::HTML(helper.output_buffer)
         expect(html.css('.alert-notice').text).to eq('ok')
@@ -14,7 +14,7 @@ module Spree
         expect(html.css('.alert-bar').text).to eq('bar')
       end
 
-      it 'should output flash content except one key' do
+      it 'outputs flash content except one key' do
         flash_messages(ignore_types: :bar)
         html = Nokogiri::HTML(helper.output_buffer)
         expect(html.css('.alert-notice').text).to eq('ok')
@@ -22,7 +22,7 @@ module Spree
         expect(html.css('.alert-bar').text).to be_empty
       end
 
-      it 'should output flash content except some keys' do
+      it 'outputs flash content except some keys' do
         flash_messages(ignore_types: [:foo, :bar])
         html = Nokogiri::HTML(helper.output_buffer)
         expect(html.css('.alert-notice').text).to eq('ok')
@@ -35,7 +35,7 @@ module Spree
     # Regression test for #2759
     it 'nested_taxons_path works with a Taxon object' do
       taxon = create(:taxon, name: 'iphone')
-      expect(spree.nested_taxons_path(taxon)).to eq('/t/iphone')
+      expect(spree.nested_taxons_path(taxon)).to eq("/t/#{taxon.parent.permalink}/#{taxon.name}")
     end
 
     context '#checkout_progress' do
@@ -45,7 +45,7 @@ module Spree
 
       it 'does not include numbers by default' do
         output = checkout_progress
-        expect(output).to_not include('1.')
+        expect(output).not_to include('1.')
       end
 
       it 'has option to include numbers' do

@@ -3,11 +3,20 @@ Spree::Core::Engine.add_routes do
     resources :promotions do
       resources :promotion_rules
       resources :promotion_actions
+      member do
+        post :clone
+      end
     end
 
     resources :promotion_categories, except: [:show]
 
     resources :zones
+
+    resources :stores do
+      member do
+        post :set_default
+      end
+    end
 
     resources :countries do
       resources :states
@@ -74,6 +83,8 @@ Spree::Core::Engine.add_routes do
         put :approve
         put :cancel
         put :resume
+        get :store
+        put :set_store
       end
 
       resources :state_changes, only: [:index]

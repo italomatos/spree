@@ -19,8 +19,10 @@ module Spree
     has_many :promotion_rule_taxons, class_name: 'Spree::PromotionRuleTaxon', dependent: :destroy
     has_many :promotion_rules, through: :promotion_rule_taxons, class_name: 'Spree::PromotionRule'
 
-    validates :name, presence: true, uniqueness: { scope: [:parent_id, :taxonomy_id], allow_blank: true }
+    validates :name, presence: true, uniqueness: { scope: [:parent_id, :taxonomy_id], allow_blank: true, case_sensitive: false }
     validates :permalink, uniqueness: { case_sensitive: false }
+    validates_associated :icon
+    validate :check_for_root, on: :create
     with_options length: { maximum: 255 }, allow_blank: true do
       validates :meta_keywords
       validates :meta_description
@@ -30,7 +32,7 @@ module Spree
     after_save :touch_ancestors_and_taxonomy
     after_touch :touch_ancestors_and_taxonomy
 
-    has_one :icon, as: :viewable, dependent: :destroy, class_name: 'Spree::TaxonIcon'
+    has_one :icon, as: :viewable, dependent: :destroy, class_name: 'Spree::TaxonImage'
 
     self.whitelisted_ransackable_associations = %w[taxonomy]
 
@@ -92,6 +94,12 @@ module Spree
       ancestors.update_all(updated_at: Time.current)
       # Have taxonomy touch happen in #touch_ancestors_and_taxonomy rather than association option in order for imports to override.
       taxonomy.try!(:touch)
+    end
+
+    def check_for_root
+      if taxonomy.try(:root).present? && parent_id.nil?
+        errors.add(:root_conflict, 'this taxonomy already has a root taxon')
+      end
     end
   end
 end

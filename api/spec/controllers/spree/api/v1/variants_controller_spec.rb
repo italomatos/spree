@@ -20,6 +20,22 @@ module Spree
       stub_authentication!
     end
 
+    describe '#variant_includes' do
+      let(:variants_includes_list) do
+        [{ option_values: :option_type }, :product, :default_price, :images, { stock_items: :stock_location }]
+      end
+
+      after { api_get :index }
+
+      it { expect(controller).to receive(:variant_includes).and_return(variants_includes_list) }
+    end
+
+    it 'adds for_currency_and_available_price_amount scope to variants list' do
+      expect(Spree::Variant).to receive(:for_currency_and_available_price_amount).
+        and_return(Spree::Variant.for_currency_and_available_price_amount)
+      api_get :index
+    end
+
     it 'can see a paginated list of variants' do
       api_get :index
       first_variant = json_response['variants'].first
@@ -35,7 +51,7 @@ module Spree
       api_get :index, per_page: 1
       expect(json_response['count']).to eq(1)
       expect(json_response['current_page']).to eq(1)
-      expect(json_response['pages']).to eq(3)
+      expect(json_response['pages']).to eq(2)
     end
 
     it 'can query the results through a parameter' do
@@ -55,7 +71,7 @@ module Spree
     end
 
     it 'variants returned contain images data' do
-      variant.images.create!(attachment: image('thinking-cat.jpg'))
+      create_image(variant, image('thinking-cat.jpg'))
 
       api_get :index
 
@@ -93,13 +109,14 @@ module Spree
     end
 
     context 'pagination' do
+      before { create(:variant) }
+
       it 'can select the next page of variants' do
-        second_variant = create(:variant)
         api_get :index, page: 2, per_page: 1
         expect(json_response['variants'].first).to have_attributes(show_attributes)
-        expect(json_response['total_count']).to eq(3)
+        expect(json_response['total_count']).to eq(2)
         expect(json_response['current_page']).to eq(2)
-        expect(json_response['pages']).to eq(3)
+        expect(json_response['pages']).to eq(2)
       end
     end
 
@@ -115,7 +132,7 @@ module Spree
     end
 
     it 'can see a single variant with images' do
-      variant.images.create!(attachment: image('thinking-cat.jpg'))
+      create_image(variant, image('thinking-cat.jpg'))
 
       api_get :show, id: variant.to_param
 
@@ -156,7 +173,7 @@ module Spree
       # Test for #2141
       context 'deleted variants' do
         before do
-          variant.update_column(:deleted_at, Time.current)
+          variant.update_columns(deleted_at: Time.current, discontinue_on: Time.current + 1)
         end
 
         it 'are visible by admin' do

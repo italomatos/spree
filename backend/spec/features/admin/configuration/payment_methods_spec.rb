@@ -3,14 +3,14 @@ require 'spec_helper'
 describe 'Payment Methods', type: :feature do
   stub_authorization!
 
-  before(:each) do
+  before do
     visit spree.admin_payment_methods_path
   end
 
   context 'admin visiting payment methods listing page' do
-    it 'should display existing payment methods' do
+    it 'displays existing payment methods' do
       create(:check_payment_method)
-      visit current_path
+      refresh
 
       within('table#listing_payment_methods') do
         expect(all('th')[1].text).to eq('Name')
@@ -26,7 +26,7 @@ describe 'Payment Methods', type: :feature do
   end
 
   context 'admin creating a new payment method' do
-    it 'should be able to create a new payment method' do
+    it 'is able to create a new payment method' do
       click_link 'admin_new_payment_methods_link'
       expect(page).to have_content('New Payment Method')
       fill_in 'payment_method_name', with: 'check90'
@@ -38,23 +38,23 @@ describe 'Payment Methods', type: :feature do
   end
 
   context 'admin editing a payment method', js: true do
-    before(:each) do
+    before do
       create(:check_payment_method)
-      visit current_path
+      refresh
 
       within('table#listing_payment_methods') do
         click_icon(:edit)
       end
     end
 
-    it 'should be able to edit an existing payment method' do
+    it 'is able to edit an existing payment method' do
       fill_in 'payment_method_name', with: 'Payment 99'
       click_button 'Update'
       expect(page).to have_content('successfully updated!')
-      expect(find_field('payment_method_name').value).to eq('Payment 99')
+      expect(page).to have_field('payment_method_name', with: 'Payment 99')
     end
 
-    it 'should display validation errors' do
+    it 'displays validation errors' do
       fill_in 'payment_method_name', with: ''
       click_button 'Update'
       expect(page).to have_content("Name can't be blank")

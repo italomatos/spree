@@ -4,7 +4,7 @@ module Spree
       class OrdersController < Spree::Api::BaseController
         skip_before_action :authenticate_user, only: :apply_coupon_code
 
-        before_action :find_order, except: [:create, :mine, :current, :index, :update]
+        before_action :find_order, except: [:create, :mine, :current, :index, :update, :remove_coupon_code]
 
         # Dynamically defines our stores checkout steps to ensure we check authorization on each step.
         Order.checkout_steps.keys.each do |step|
@@ -27,21 +27,31 @@ module Spree
         end
 
         def create
-          authorize! :create, Order
-          order_user = if @current_user_roles.include?('admin') && order_params[:user_id]
-                         Spree.user_class.find(order_params[:user_id])
-                       else
-                         current_api_user
-          end
+          authorize! :create, Spree::Order
+          if can?(:admin, Spree::Order)
+            order_user = if @current_user_roles.include?('admin') && order_params[:user_id]
+                           Spree.user_class.find(order_params[:user_id])
+                         else
+                           current_api_user
+                         end
 
-          import_params = if @current_user_roles.include?('admin')
-                            params[:order].present? ? params[:order].permit! : {}
-                          else
-                            order_params
-          end
+            import_params = if @current_user_roles.include?('admin')
+                              params[:order].present? ? params[:order].permit! : {}
+                            else
+                              order_params
+                            end
 
-          @order = Spree::Core::Importer::Order.import(order_user, import_params)
-          respond_with(@order, default_template: :show, status: 201)
+            @order = Spree::Core::Importer::Order.import(order_user, import_params)
+
+            respond_with(@order, default_template: :show, status: 201)
+          else
+            @order = Spree::Order.create!(user: current_api_user, store: current_store)
+            if Cart::Update.call(order: @order, params: order_params).success?
+              respond_with(@order, default_template: :show, status: 201)
+            else
+              invalid_resource!(@order)
+            end
+          end
         end
 
         def empty
@@ -65,7 +75,7 @@ module Spree
           find_order(true)
           authorize! :update, @order, order_token
 
-          if @order.contents.update_cart(order_params)
+          if Cart::Update.call(order: @order, params: order_params).success?
             user_id = params[:order][:user_id]
             if current_api_user.has_spree_role?('admin') && user_id
               @order.associate_user!(Spree.user_class.find(user_id))
@@ -99,6 +109,14 @@ module Spree
           @order.coupon_code = params[:coupon_code]
           @handler = PromotionHandler::Coupon.new(@order).apply
           status = @handler.successful? ? 200 : 422
+          render 'spree/api/v1/promotions/handler', status: status
+        end
+
+        def remove_coupon_code
+          find_order(true)
+          authorize! :update, @order, order_token
+          @handler = Spree::PromotionHandler::Coupon.new(@order).remove(params[:coupon_code])
+          status = @handler.successful? ? 200 : 404
           render 'spree/api/v1/promotions/handler', status: status
         end
 

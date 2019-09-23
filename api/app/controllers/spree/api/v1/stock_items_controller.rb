@@ -34,6 +34,11 @@ module Spree
         def update
           @stock_item = StockItem.accessible_by(current_ability, :update).find(params[:id])
 
+          if params[:stock_item].key?(:backorderable)
+            @stock_item.backorderable = params[:stock_item][:backorderable]
+            @stock_item.save
+          end
+
           count_on_hand = 0
           if params[:stock_item].key?(:count_on_hand)
             count_on_hand = params[:stock_item][:count_on_hand].to_i
@@ -41,7 +46,7 @@ module Spree
           end
 
           updated = params[:stock_item][:force] ? @stock_item.set_count_on_hand(count_on_hand)
-                                                : @stock_item.adjust_count_on_hand(count_on_hand)
+          : @stock_item.adjust_count_on_hand(count_on_hand)
 
           if updated
             respond_with(@stock_item, status: 200, default_template: :show)
@@ -60,12 +65,12 @@ module Spree
 
         def stock_location
           render 'spree/api/v1/shared/stock_location_required', status: 422 and return unless params[:stock_location_id]
-          @stock_location ||= StockLocation.accessible_by(current_ability, :read).find(params[:stock_location_id])
+          @stock_location ||= StockLocation.accessible_by(current_ability, :show).find(params[:stock_location_id])
         end
 
         def scope
           includes = { variant: [{ option_values: :option_type }, :product] }
-          @stock_location.stock_items.accessible_by(current_ability, :read).includes(includes)
+          @stock_location.stock_items.accessible_by(current_ability, :show).includes(includes)
         end
 
         def stock_item_params

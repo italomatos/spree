@@ -1,14 +1,23 @@
 if ENV['COVERAGE']
   # Run Coverage report
   require 'simplecov'
-  SimpleCov.start do
-    add_group 'Controllers', 'app/controllers'
-    add_group 'Helpers', 'app/helpers'
+  SimpleCov.start 'rails' do
+    add_group 'Finders', 'app/finders'
     add_group 'Mailers', 'app/mailers'
-    add_group 'Models', 'app/models'
-    add_group 'Views', 'app/views'
-    add_group 'Jobs', 'app/jobs'
-    add_group 'Libraries', 'lib'
+    add_group 'Paginators', 'app/paginators'
+    add_group 'Services', 'app/services'
+    add_group 'Sorters', 'app/sorters'
+    add_group 'Validators', 'app/validators'
+    add_group 'Libraries', 'lib/spree'
+
+    add_filter '/bin/'
+    add_filter '/db/'
+    add_filter '/script/'
+    add_filter '/spec/'
+    add_filter '/lib/spree/testing_support/'
+    add_filter '/lib/generators/'
+
+    coverage_dir "#{ENV['COVERAGE_DIR']}/core" if ENV['COVERAGE_DIR']
   end
 end
 
@@ -37,8 +46,9 @@ require 'spree/testing_support/kernel'
 
 RSpec.configure do |config|
   config.color = true
+  config.default_formatter = 'doc'
   config.fail_fast = ENV['FAIL_FAST'] || false
-  config.fixture_path = File.join(File.expand_path(File.dirname(__FILE__)), 'fixtures')
+  config.fixture_path = File.join(__dir__, 'fixtures')
   config.infer_spec_type_from_file_location!
   config.mock_with :rspec
   config.raise_errors_for_deprecations!
@@ -48,12 +58,13 @@ RSpec.configure do |config|
   # instead of true.
   config.use_transactional_fixtures = true
 
-  config.before :each do
-    Rails.cache.clear
-    reset_spree_preferences
+  config.before do
+    begin
+      Rails.cache.clear
+      reset_spree_preferences
+    rescue Errno::ENOTEMPTY
+    end
   end
-
-  config.extend WithModel
 
   config.include FactoryBot::Syntax::Methods
   config.include Spree::TestingSupport::Preferences
@@ -62,16 +73,6 @@ RSpec.configure do |config|
   # Clean out the database state before the tests run
   config.before(:suite) do
     DatabaseCleaner.clean_with(:truncation)
-    DatabaseCleaner.strategy = :transaction
-  end
-
-  # Wrap all db isolated tests in a transaction
-  config.around(db: :isolate) do |example|
-    DatabaseCleaner.cleaning(&example)
-  end
-
-  config.around do |example|
-    Timeout.timeout(30, &example)
   end
 
   config.order = :random

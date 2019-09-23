@@ -3,7 +3,7 @@ require 'spec_helper'
 describe 'Properties', type: :feature, js: true do
   stub_authorization!
 
-  before(:each) do
+  before do
     visit spree.admin_products_path
   end
 
@@ -11,12 +11,11 @@ describe 'Properties', type: :feature, js: true do
     before do
       create(:property, name: 'shirt size', presentation: 'size')
       create(:property, name: 'shirt fit', presentation: 'fit')
-      click_link 'Products'
-      click_link 'Properties'
+      visit spree.admin_properties_path
     end
 
     context 'listing product properties' do
-      it 'should list the existing product properties' do
+      it 'lists the existing product properties' do
         within_row(1) do
           expect(column_text(1)).to eq('shirt size')
           expect(column_text(2)).to eq('size')
@@ -30,7 +29,7 @@ describe 'Properties', type: :feature, js: true do
     end
 
     context 'searching properties' do
-      it 'should list properties matching search query' do
+      it 'lists properties matching search query' do
         click_on 'Filter'
         fill_in 'q_name_cont', with: 'size'
         click_on 'Search'
@@ -38,13 +37,28 @@ describe 'Properties', type: :feature, js: true do
         expect(page).to have_content('shirt size')
         expect(page).not_to have_content('shirt fit')
       end
+
+      it 'renders selected filters' do
+        click_on 'Filter'
+
+        within('#table-filter') do
+          fill_in 'q_name_cont', with: 'color'
+          fill_in 'q_presentation_cont', with: 'shade'
+        end
+
+        click_on 'Search'
+
+        within('.table-active-filters') do
+          expect(page).to have_content('Name: color')
+          expect(page).to have_content('Presentation: shade')
+        end
+      end
     end
   end
 
   context 'creating a property' do
-    it 'should allow an admin to create a new product property' do
-      click_link 'Products'
-      click_link 'Properties'
+    it 'allows an admin to create a new product property' do
+      visit spree.admin_properties_path
       click_link 'new_property_link'
       within('.content-header') { expect(page).to have_content('New Property') }
 
@@ -56,21 +70,20 @@ describe 'Properties', type: :feature, js: true do
   end
 
   context 'editing a property' do
-    before(:each) do
+    before do
       create(:property)
-      click_link 'Products'
-      click_link 'Properties'
+      visit spree.admin_properties_path
       within_row(1) { click_icon :edit }
     end
 
-    it 'should allow an admin to edit an existing product property' do
+    it 'allows an admin to edit an existing product property' do
       fill_in 'property_name', with: 'model 99'
       click_button 'Update'
       expect(page).to have_content('successfully updated!')
       expect(page).to have_content('model 99')
     end
 
-    it 'should show validation errors' do
+    it 'shows validation errors' do
       fill_in 'property_name', with: ''
       click_button 'Update'
       expect(page).to have_content("Name can't be blank")
@@ -90,10 +103,9 @@ describe 'Properties', type: :feature, js: true do
     # Regression test for #2279
     it 'successfully create and then remove product property' do
       fill_in_property
-      # Sometimes the page doesn't load before the all check is done
-      # lazily finding the element gives the page 10 seconds
+
       expect(page).to have_css('tbody#product_properties tr:nth-child(2)')
-      expect(all('tbody#product_properties tr').count).to eq(2)
+      expect(page).to have_css('tbody#product_properties tr').twice
 
       delete_product_property
 
@@ -130,18 +142,18 @@ describe 'Properties', type: :feature, js: true do
     end
 
     def delete_product_property
-      accept_alert do
+      accept_confirm do
         click_icon :delete
-        wait_for_ajax # delete action must finish before reloading
       end
+      expect(page.document).to have_content('successfully removed!')
+                           .or have_content('Cannot delete record')
     end
 
     def check_property_row_count(expected_row_count)
       within('#sidebar') do
         click_link 'Properties'
       end
-      expect(page).to have_css('tbody#product_properties')
-      expect(all('tbody#product_properties tr').count).to eq(expected_row_count)
+      expect(page).to have_css('tbody#product_properties tr', count: expected_row_count)
     end
   end
 end

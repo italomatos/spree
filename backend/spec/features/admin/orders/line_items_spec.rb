@@ -40,7 +40,7 @@ describe 'Order Line Items', type: :feature, js: true do
 
     within('.line-items') do
       within_row(1) do
-        accept_alert do
+        accept_confirm do
           find('.delete-line-item').click
         end
       end

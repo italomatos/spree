@@ -1,4 +1,15 @@
 en:
+  activemodel:
+    errors:
+      models:
+        spree/fulfilment_changer:
+          attributes:
+            desired_shipment:
+              can_not_transfer_within_same_shipment: can not be same as current shipment
+              not_enough_stock_at_desired_location: not enough stock in desired stock location
+            current_shipment:
+              has_already_been_shipped: has already been shipped
+              can_not_have_backordered_inventory_units: has backordered inventory units
   activerecord:
     attributes:
       spree/address:
@@ -92,6 +103,7 @@ en:
         description: Description
         event_name: Event Name
         expires_at: Expires At
+        generate_code: Generate coupon code
         name: Name
         path: Path
         starts_at: Starts At
@@ -358,7 +370,17 @@ en:
           attributes:
             base:
               cannot_destroy_if_attached_to_line_items: Cannot delete variants once they are attached to line items.
-
+              no_master_variant_found_to_infer_price: No master variant found to infer price
+              must_supply_price_for_variant_or_master: Must supply price for variant or master price for product.
+        spree/image:
+          attributes:
+            attachment:
+              not_allowed_content_type: has not allowed content type
+              attachment_must_be_present: must be present
+        spree/taxon_image:
+          attributes:
+            attachment:
+              not_allowed_content_type: has not allowed content type
   devise:
     confirmations:
       confirmed: Your account was successfully confirmed. You are now signed in.
@@ -456,6 +478,20 @@ en:
     address1: Address
     address2: Address (contd.)
     addresses: Addresses
+    address_book:
+      other_address: "Other address"
+      add_new_shipping_address: "Add new address"
+      new_shipping_address: "New Address"
+      edit_shipping_address: "Edit Address"
+      no_shipping_addresses_on_file: "No addresses on file"
+      shipping_addresses: "Addresses"
+      successfully_created: "Address has been successfully created."
+      successfully_removed: "Address has been successfully removed."
+      successfully_saved: "Saved successfully"
+      unsuccessfully_saved: "There was an error while trying to save your address."
+      successfully_updated: "Updated successfully"
+      unsuccessfully_updated: "There was an update while trying to update your address."
+      save: "Save"
     adjustable: Adjustable
     adjustment: Adjustment
     adjustment_amount: Amount
@@ -499,6 +535,7 @@ en:
         order_num: "Order #"
         orders: Orders
         user_information: User Information
+        stores: Stores
         store_credits: Store Credits
         no_store_credit: User has no Store Credit available.
         available_store_credit: User has %{amount} in Store Credit available.
@@ -573,6 +610,7 @@ en:
       other: 'Subtotal (%{count} items)'
     categories: Categories
     category: Category
+    channel: Channel
     charged: Charged
     checkout: Checkout
     choose_a_customer: Choose a customer
@@ -658,6 +696,7 @@ en:
     date_range: Date Range
     default: Default
     default_country_cannot_be_deleted: Default country cannot be deleted
+    default_currency: Default currency
     default_refund_amount: Default Refund Amount
     default_tax: Default Tax
     default_tax_zone: Default Tax Zone
@@ -708,6 +747,10 @@ en:
         blank: can't be blank
         could_not_create_taxon: Could not create taxon
         no_shipping_methods_available: No shipping methods available for selected location, please change your address and try again.
+      services:
+        get_shipping_rates:
+          no_shipping_address: To generate Shipping Rates Order needs to have a Shipping Address
+          no_line_items: To generate Shipping Rates you need to add some Line Items to Order
     errors_prohibited_this_record_from_being_saved:
       one: 1 error prohibited this record from being saved
       other: ! '%{count} errors prohibited this record from being saved'
@@ -757,6 +800,7 @@ en:
     gateway_error: Gateway Error
     general: General
     general_settings: General Settings
+    generate_code: Generate coupon code
     guest_checkout: Guest Checkout
     guest_user_account: Checkout as a Guest
     has_no_shipped_units: has no shipped units
@@ -791,6 +835,7 @@ en:
       other: "and %{count} others"
     instructions_to_reset_password: Please enter your email on the form below
     insufficient_stock: Insufficient stock available, only %{on_hand} remaining
+    insufficient_stock_item_quantity: Insufficient stock quantity available
     insufficient_stock_lines_present: Some line items in this order have insufficient quantity.
     intercept_email_address: Intercept Email Address
     intercept_email_instructions: Override email recipient and replace with this address.
@@ -849,6 +894,7 @@ en:
     manual_intervention_required: Manual intervention required
     manage_variants: Manage Variants
     master_price: Master Price
+    master_sku: Master SKU
     match_choices:
       all: All
       none: None
@@ -934,10 +980,10 @@ en:
     notice_messages:
       product_cloned: Product has been cloned
       product_deleted: Product has been deleted
-      product_not_cloned: Product could not be cloned
-      product_not_deleted: Product could not be deleted
+      product_not_cloned: "Product could not be cloned. Reason: %{error}"
+      product_not_deleted: "Product could not be deleted. Reason: %{error}"
       variant_deleted: Variant has been deleted
-      variant_not_deleted: Variant could not be deleted
+      variant_not_deleted: "Variant could not be deleted. Reason: %{error}"
     num_orders: "# Orders"
     number: Number
     on_hand: On Hand
@@ -997,6 +1043,8 @@ en:
     order_updated: Order Updated
     orders: Orders
     out_of_stock: Out of Stock
+    backordered_info: Selected item is backordered so expect delays
+    backordered_confirm_info: Selected item is backordered so expect delays. Are you sure you want to order it?
     overview: Overview
     package_from: package from
     pagination:
@@ -1046,6 +1094,7 @@ en:
     pre_tax_total: Pre-Tax Total
     preferred_reimbursement_type: Preferred Reimbursement Type
     presentation: Presentation
+    preview_product: Preview Product
     previous: Previous
     previous_state_missing: "n/a"
     price: Price
@@ -1069,6 +1118,8 @@ en:
     products: Products
     promotion: Promotion
     promotionable: Promotable
+    promotion_cloned: Promotion has been cloned
+    promotion_not_cloned: "Promotion has not been cloned. Reason: %{error}"
     promotion_action: Promotion Action
     promotion_action_types:
       create_adjustment:
@@ -1355,6 +1406,8 @@ en:
     stock_transfers: Stock Transfers
     stop: Stop
     store: Store
+    stores: Stores
+    add_store: New Store
     store_credit_name: Store Credit
     store_credit:
       credit: "Credit"
@@ -1373,6 +1426,7 @@ en:
         unable_to_delete: Unable to delete store credit
         unable_to_fund: Unable to pay for order using store credits
         unable_to_update: Unable to update store credit
+    store_credits: Store Credits
     store_credit_categories: Store Credit Categories
     store_credit_payment_method:
       unable_to_void: "Unable to void code: %{auth_code}"
@@ -1385,6 +1439,10 @@ en:
       unable_to_find_for_action: "Could not find store credit for auth code: %{auth_code} for action: %{action}"
       user_has_no_store_credits: "User does not have any available store credit"
       select_one_store_credit: "Select store credit to go towards remaining balance"
+    store_default: Default store
+    store_set_default_button: Set as default
+    store_not_set_as_default: Couldn't set store %{store} as a default store
+    store_set_as_default: Store %{store} is now a default store
     street_address: Street Address
     street_address_2: Street Address (cont'd)
     subtotal: Subtotal
@@ -1462,6 +1520,7 @@ en:
     unshippable_items: Unshippable Items
     update: Update
     updating: Updating
+    url: URL
     usage_limit: Usage Limit
     use_app_default: Use App Default
     use_billing_address: Use Billing Address

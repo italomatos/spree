@@ -133,7 +133,7 @@ describe Spree::LineItem, type: :model do
       end
 
       it 'creates a tax adjustment' do
-        order.contents.add(variant)
+        Spree::Cart::AddItem.call(order: order, variant: variant)
         line_item = order.find_line_item_by_variant(variant)
         expect(line_item.adjustments.tax.count).to eq(1)
       end
@@ -148,7 +148,8 @@ describe Spree::LineItem, type: :model do
       end
 
       it 'does not create a tax adjustment' do
-        order.contents.add(variant)
+        Spree::Cart::AddItem.call(order: order, variant: variant)
+
         line_item = order.find_line_item_by_variant(variant)
         expect(line_item.adjustments.tax.count).to eq(0)
       end
@@ -204,7 +205,7 @@ describe Spree::LineItem, type: :model do
   end
 
   describe '#discounted_money' do
-    it 'should return a money object with the discounted amount' do
+    it 'returns a money object with the discounted amount' do
       expect(line_item.discounted_money.to_s).to eq '$10.00'
     end
   end
@@ -238,7 +239,7 @@ describe Spree::LineItem, type: :model do
     context 'nothing left on stock' do
       before do
         variant.stock_items.update_all count_on_hand: 5, backorderable: false
-        order.contents.add(variant, 5)
+        Spree::Cart::AddItem.call(order: order, variant: variant, quantity: 5)
         order.create_proposed_shipments
         order.finalize!
         order.reload
@@ -250,7 +251,7 @@ describe Spree::LineItem, type: :model do
         line_item.target_shipment = order.shipments.first
         line_item.valid?
 
-        expect(line_item.errors_on(:quantity).size).to eq(0)
+        expect(line_item.errors).to be_empty
       end
 
       it 'doesnt allow to increase item quantity' do
@@ -259,14 +260,15 @@ describe Spree::LineItem, type: :model do
         line_item.target_shipment = order.shipments.first
         line_item.valid?
 
-        expect(line_item.errors_on(:quantity).size).to eq(1)
+        expect(line_item.errors).not_to be_empty
+        expect(line_item.errors.messages[:quantity]).to be_present
       end
     end
 
     context '2 items left on stock' do
       before do
         variant.stock_items.update_all count_on_hand: 7, backorderable: false
-        order.contents.add(variant, 5)
+        Spree::Cart::AddItem.call(order: order, variant: variant, quantity: 5)
         order.create_proposed_shipments
         order.finalize!
         order.reload
@@ -278,7 +280,7 @@ describe Spree::LineItem, type: :model do
         line_item.target_shipment = order.shipments.first
         line_item.valid?
 
-        expect(line_item.errors_on(:quantity).size).to eq(0)
+        expect(line_item.errors).to be_empty
       end
 
       it 'doesnt allow to increase quantity over stock availability' do
@@ -287,7 +289,8 @@ describe Spree::LineItem, type: :model do
         line_item.target_shipment = order.shipments.first
         line_item.valid?
 
-        expect(line_item.errors_on(:quantity).size).to eq(1)
+        expect(line_item.errors).not_to be_empty
+        expect(line_item.errors.messages[:quantity]).to be_present
       end
     end
   end
@@ -298,7 +301,7 @@ describe Spree::LineItem, type: :model do
       line_item.currency = order.currency
       line_item.valid?
 
-      expect(line_item.error_on(:currency).size).to eq(0)
+      expect(line_item.errors).to be_empty
     end
   end
 
@@ -308,7 +311,8 @@ describe Spree::LineItem, type: :model do
       line_item.currency = 'no currency'
       line_item.valid?
 
-      expect(line_item.error_on(:currency).size).to eq(1)
+      expect(line_item.errors).not_to be_empty
+      expect(line_item.errors.messages[:currency]).to be_present
     end
   end
 
@@ -337,6 +341,52 @@ describe Spree::LineItem, type: :model do
       # prevent it from updating pre_tax_amount
       allow_any_instance_of(Spree::LineItem).to receive(:update_tax_charge)
       expect(line_item.reload.pre_tax_amount).to eq(4.2051)
+    end
+  end
+
+  describe '#update_price_from_modifier' do
+    context 'with specified currency' do
+      let(:line_item) { create :line_item }
+
+      it 'sets currency' do
+        expect do
+          line_item.send(:update_price_from_modifier, 'EUR', {})
+        end.to change(line_item, :currency).to('EUR').from('USD')
+      end
+
+      context 'variant with price in this currency' do
+        it 'sets the proper price' do
+          line_item.variant.prices.create(amount: 10, currency: 'EUR')
+          expect(line_item.variant).to receive(:gift_wrap_price_modifier_amount_in).with('EUR', true).and_return 1.99
+          expect do
+            line_item.send(:update_price_from_modifier, 'EUR', gift_wrap: true)
+          end.to change { line_item.price.to_f }.to(11.99)
+        end
+      end
+
+      context 'variant without price in this currency' do
+        it 'sets the proper price' do
+          expect(line_item.variant).to receive(:gift_wrap_price_modifier_amount_in).with('EUR', true).and_return 1.99
+          expect do
+            line_item.send(:update_price_from_modifier, 'EUR', gift_wrap: true)
+          end.to change { line_item.price.to_f }.to(1.99)
+        end
+      end
+    end
+
+    context 'without currency' do
+      let(:line_item) { create :line_item, variant: create(:variant, price: 10) }
+
+      before do
+        line_item.order.currency = nil
+      end
+
+      it 'sets the proper price' do
+        expect(line_item.variant).to receive(:gift_wrap_price_modifier_amount).with(true).and_return 1.99
+        expect do
+          line_item.send(:update_price_from_modifier, nil, gift_wrap: true)
+        end.to change { line_item.price.to_f }.to(11.99).from(10)
+      end
     end
   end
 end

@@ -18,7 +18,7 @@ describe Spree::Admin::ReturnAuthorizationsController, type: :controller do
       let(:return_authorization) { create(:return_authorization, reason: inactive_rma_reason) }
 
       it 'loads all the active rma reasons' do
-        spree_get :edit, id: return_authorization.to_param, order_id: return_authorization.order.to_param
+        get :edit, params: { id: return_authorization.to_param, order_id: return_authorization.order.to_param }
         expect(assigns(:reasons)).to include(return_authorization_reason)
         expect(assigns(:reasons)).to include(inactive_rma_reason)
         expect(assigns(:reasons)).not_to include(other_inactive_rma_reason)
@@ -29,14 +29,14 @@ describe Spree::Admin::ReturnAuthorizationsController, type: :controller do
       let(:return_authorization) { create(:return_authorization, reason: return_authorization_reason) }
 
       it 'loads all the active rma reasons' do
-        spree_get :edit, id: return_authorization.to_param, order_id: return_authorization.order.to_param
+        get :edit, params: { id: return_authorization.to_param, order_id: return_authorization.order.to_param }
         expect(assigns(:reasons)).to eq [return_authorization_reason]
       end
     end
 
     context "return authorization doesn't have an associated reason" do
       it 'loads all the active rma reasons' do
-        spree_get :new, order_id: order.to_param
+        get :new, params: { order_id: order.to_param }
         expect(assigns(:reasons)).to eq [return_authorization_reason]
       end
     end
@@ -67,15 +67,17 @@ describe Spree::Admin::ReturnAuthorizationsController, type: :controller do
     end
 
     context '#new' do
-      subject { spree_get :new, order_id: order.to_param }
+      subject { get :new, params: { order_id: order.to_param } }
 
       include_context 'without existing return items'
     end
 
     context '#edit' do
       subject do
-        spree_get :edit,           id: return_authorization.to_param,
-                                   order_id: order.to_param
+        get :edit, params: {
+          id: return_authorization.to_param,
+          order_id: order.to_param
+        }
       end
 
       let(:return_authorization) { create(:return_authorization, order: order) }
@@ -86,8 +88,10 @@ describe Spree::Admin::ReturnAuthorizationsController, type: :controller do
 
     context '#create failed' do
       subject do
-        spree_post :create,           return_authorization: { return_authorization_reason_id: -1 }, # invalid reason_id
-                                      order_id: order.to_param
+        post :create, params: {
+          return_authorization: { return_authorization_reason_id: -1 }, # invalid reason_id
+          order_id: order.to_param
+        }
       end
 
       include_context 'without existing return items'
@@ -95,9 +99,11 @@ describe Spree::Admin::ReturnAuthorizationsController, type: :controller do
 
     context '#update failed' do
       subject do
-        spree_put :update,           return_authorization: { return_authorization_reason_id: -1 }, # invalid reason_id
-                                     id: return_authorization.to_param,
-                                     order_id: order.to_param
+        put :update, params: {
+          return_authorization: { return_authorization_reason_id: -1 }, # invalid reason_id
+          id: return_authorization.to_param,
+          order_id: order.to_param
+        }
       end
 
       let(:return_authorization) { create(:return_authorization, order: order) }
@@ -114,7 +120,7 @@ describe Spree::Admin::ReturnAuthorizationsController, type: :controller do
     let!(:second_active_reimbursement_type) { create(:reimbursement_type) }
 
     before do
-      spree_get :new, order_id: order.to_param
+      get :new, params: { order_id: order.to_param }
     end
 
     it 'loads all the active reimbursement types' do
@@ -125,14 +131,14 @@ describe Spree::Admin::ReturnAuthorizationsController, type: :controller do
   end
 
   context '#create' do
-    let(:stock_location) { create(:stock_location) }
+    subject { post :create, params: params }
 
-    subject { spree_post :create, params }
+    let(:stock_location) { create(:stock_location) }
 
     let(:params) do
       {
         order_id: order.to_param,
-        return_authorization: return_authorization_params,
+        return_authorization: return_authorization_params
       }
     end
 
@@ -140,7 +146,7 @@ describe Spree::Admin::ReturnAuthorizationsController, type: :controller do
       {
         memo: '',
         stock_location_id: stock_location.id,
-        return_authorization_reason_id: return_authorization_reason.id,
+        return_authorization_reason_id: return_authorization_reason.id
       }
     end
 
@@ -151,23 +157,23 @@ describe Spree::Admin::ReturnAuthorizationsController, type: :controller do
   end
 
   context '#update' do
+    subject { put :update, params: params }
+
     let(:return_authorization) { create(:return_authorization, order: order) }
 
     let(:params) do
       {
         id: return_authorization.to_param,
         order_id: order.to_param,
-        return_authorization: return_authorization_params,
+        return_authorization: return_authorization_params
       }
     end
     let(:return_authorization_params) do
       {
         memo: '',
-        return_items_attributes: return_items_params,
+        return_items_attributes: return_items_params
       }
     end
-
-    subject { spree_put :update, params }
 
     context 'adding an item' do
       let(:return_items_params) do
@@ -190,7 +196,7 @@ describe Spree::Admin::ReturnAuthorizationsController, type: :controller do
         end
 
         it 'does not create new items' do
-          expect { subject }.to_not change { Spree::ReturnItem.count }
+          expect { subject }.not_to change { Spree::ReturnItem.count }
           expect(assigns[:return_authorization].errors['return_items.inventory_unit']).to eq ["#{inventory_unit_1.id} has already been taken by return item #{completed_return_item.id}"]
         end
       end

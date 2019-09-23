@@ -6,7 +6,7 @@ module Spree
         include Spree::Core::TokenGenerator
 
         included do
-          before_action :set_guest_token
+          before_action :set_token
           helper_method :try_spree_current_user
 
           rescue_from CanCan::AccessDenied do |_exception|
@@ -16,7 +16,7 @@ module Spree
 
         # Needs to be overriden so that we use Spree's Ability rather than anyone else's.
         def current_ability
-          @current_ability ||= Spree::Ability.new(try_spree_current_user)
+          @current_ability ||= Spree::Dependencies.ability_class.constantize.new(try_spree_current_user)
         end
 
         def redirect_back_or_default(default)
@@ -24,10 +24,20 @@ module Spree
           session['spree_user_return_to'] = nil
         end
 
-        def set_guest_token
-          if cookies.signed[:guest_token].blank?
-            cookies.permanent.signed[:guest_token] = generate_guest_token
-          end
+        def set_token
+          cookies.permanent.signed[:token] ||= cookies.signed[:guest_token]
+          cookies.permanent.signed[:token] ||= {
+            value: generate_token,
+            httponly: true
+          }
+          cookies.permanent.signed[:guest_token] ||= cookies.permanent.signed[:token]
+        end
+
+        def current_oauth_token
+          user = try_spree_current_user
+          return unless user
+
+          @current_oauth_token ||= Doorkeeper::AccessToken.active_for(user).last || Doorkeeper::AccessToken.create!(resource_owner_id: user.id)
         end
 
         def store_location

@@ -5,9 +5,10 @@ module Spree
     render_views
     let!(:order) { create(:order) }
     let!(:payment) { create(:payment, order: order) }
-    let!(:attributes) do [:id, :source_type, :source_id, :amount, :display_amount,
-                          :payment_method_id, :state, :avs_response,
-                          :created_at, :updated_at, :number]
+    let!(:attributes) do
+      [:id, :source_type, :source_id, :amount, :display_amount,
+       :payment_method_id, :state, :avs_response,
+       :created_at, :updated_at, :number]
     end
 
     let(:resource_scoping) { { order_id: order.to_param } }
@@ -35,6 +36,7 @@ module Spree
         end
 
         it 'can create a new payment' do
+          allow_any_instance_of(Spree::PaymentMethod).to receive(:source_required?).and_return(false)
           api_post :create, payment: { payment_method_id: PaymentMethod.first.id, amount: 50 }
           expect(response.status).to eq(201)
           expect(json_response).to have_attributes(attributes)
@@ -67,7 +69,7 @@ module Spree
         end
 
         it 'can view the payments for an order given the order token' do
-          api_get :index, order_id: order.to_param, order_token: order.guest_token
+          api_get :index, order_id: order.to_param, order_token: order.token
           expect(json_response['payments'].first).to have_attributes(attributes)
         end
       end
@@ -102,16 +104,16 @@ module Spree
         context 'updating' do
           context 'when the state is checkout' do
             it 'can update' do
-              payment.update_attributes(state: 'checkout')
+              payment.update(state: 'checkout')
               api_put(:update, id: payment.to_param, payment: { amount: 2.01 })
-              expect(response.status).to be(200)
+              expect(response.status).to eq(200)
               expect(payment.reload.amount).to eq(2.01)
             end
           end
 
           context 'when the state is pending' do
             it 'can update' do
-              payment.update_attributes(state: 'pending')
+              payment.update(state: 'pending')
               api_put(:update, id: payment.to_param, payment: { amount: 2.01 })
               expect(response.status).to be(200)
               expect(payment.reload.amount).to eq(2.01)
@@ -120,14 +122,14 @@ module Spree
 
           context 'update fails' do
             it 'returns a 422 status when the amount is invalid' do
-              payment.update_attributes(state: 'pending')
+              payment.update(state: 'pending')
               api_put(:update, id: payment.to_param, payment: { amount: 'invalid' })
               expect(response.status).to be(422)
               expect(json_response['error']).to eql('Invalid resource. Please fix errors and try again.')
             end
 
             it 'returns a 403 status when the payment is not pending' do
-              payment.update_attributes(state: 'completed')
+              payment.update(state: 'completed')
               api_put(:update, id: payment.to_param, payment: { amount: 2.01 })
               expect(response.status).to be(403)
               expect(json_response['error']).to eql('This payment cannot be updated because it is completed.')

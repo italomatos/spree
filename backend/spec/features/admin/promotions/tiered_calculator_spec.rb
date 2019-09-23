@@ -1,15 +1,15 @@
 require 'spec_helper'
 
-feature 'Tiered Calculator Promotions' do
+describe 'Tiered Calculator Promotions' do
   stub_authorization!
 
   let(:promotion) { create :promotion }
 
-  background do
+  before do
     visit spree.edit_admin_promotion_path(promotion)
   end
 
-  scenario 'adding a tiered percent calculator', js: true do
+  it 'adding a tiered percent calculator', js: true do
     select2 'Create whole-order adjustment', from: 'Add action of type'
     within('#action_fields') { click_button 'Add' }
 
@@ -17,8 +17,8 @@ feature 'Tiered Calculator Promotions' do
     within('#actions_container') { click_button 'Update' }
 
     within('#actions_container .settings') do
-      expect(page.body).to have_content('Base Percent')
-      expect(page.body).to have_content('Tiers')
+      expect(page).to have_content('Base Percent')
+      expect(page).to have_content('Tiers')
 
       click_button 'Add'
     end
@@ -26,10 +26,8 @@ feature 'Tiered Calculator Promotions' do
     fill_in 'Base Percent', with: 5
 
     within('.tier') do
-      find('.js-base-input').set(100)
-      page.execute_script("$('.js-base-input').change();")
-      find('.js-value-input').set(10)
-      page.execute_script("$('.js-value-input').change();")
+      fill_in(class: 'js-base-input', with: '100')
+      fill_in(class: 'js-value-input', with: '10')
     end
     within('#actions_container') { click_button 'Update' }
 
@@ -45,7 +43,7 @@ feature 'Tiered Calculator Promotions' do
   context 'with an existing tiered flat rate calculator' do
     let(:promotion) { create :promotion, :with_order_adjustment }
 
-    background do
+    before do
       action = promotion.actions.first
 
       action.calculator = Spree::Calculator::TieredFlatRate.new
@@ -56,7 +54,7 @@ feature 'Tiered Calculator Promotions' do
       visit spree.edit_admin_promotion_path(promotion)
     end
 
-    scenario 'deleting a tier', js: true do
+    it 'deleting a tier', js: true do
       within('.tier:nth-child(2)') do
         click_icon :delete
       end

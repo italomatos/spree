@@ -3,7 +3,7 @@ require 'spec_helper'
 module Spree
   module Core
     describe Importer::Order do
-      let!(:country) { create(:country) }
+      let!(:country) { create(:country, iso: 'US', iso3: 'USA') }
       let!(:state) { country.states.first || create(:state, country: country) }
       let!(:stock_location) { create(:stock_location, admin_name: 'Admin Name') }
 
@@ -85,6 +85,7 @@ module Spree
 
         context 'as a user' do
           before { allow(user).to receive_messages has_spree_role?: false }
+
           it 'does not assign the order to the other user' do
             params = { user_id: other_user.id }
             order = Importer::Order.import(user, params)
@@ -109,14 +110,14 @@ module Spree
         line_items.first[:variant_id] = 'XXX'
         params = { line_items_attributes: line_items }
 
-        expect { Importer::Order.import(user, params) }.to raise_error /XXX/
+        expect { Importer::Order.import(user, params) }.to raise_error(/XXX/)
       end
 
       it 'handles line_item updating exceptions' do
         line_items.first[:currency] = 'GBP'
         params = { line_items_attributes: line_items }
 
-        expect { Importer::Order.import(user, params) }.to raise_error /Validation failed/
+        expect { Importer::Order.import(user, params) }.to raise_error(/Validation failed/)
       end
 
       it 'can build an order from API with variant sku' do
@@ -131,7 +132,7 @@ module Spree
 
       it 'handles exceptions when sku is not found' do
         params = { line_items_attributes: [{ sku: 'XXX', quantity: 5 }] }
-        expect { Importer::Order.import(user, params) }.to raise_error /XXX/
+        expect { Importer::Order.import(user, params) }.to raise_error(/XXX/)
       end
 
       it 'can build an order from API shipping address' do
@@ -164,7 +165,7 @@ module Spree
           line_items_attributes: line_items
         }
 
-        expect { Importer::Order.import(user, params) }.to raise_error /XXX/
+        expect { Importer::Order.import(user, params) }.to raise_error(/XXX/)
       end
 
       it 'can build an order from API with state attributes' do
@@ -260,7 +261,7 @@ module Spree
 
       it 'raises with proper message when cant find country' do
         address = { country: { 'name' => 'NoNoCountry' } }
-        expect { Importer::Order.ensure_country_id_from_params(address) }.to raise_error /NoNoCountry/
+        expect { Importer::Order.ensure_country_id_from_params(address) }.to raise_error(/NoNoCountry/)
       end
 
       it 'ensures_state_id for state fields' do
@@ -395,7 +396,7 @@ module Spree
             }
           ]
         }
-        expect { Importer::Order.import(user, params) }.to raise_error /XXX/
+        expect { Importer::Order.import(user, params) }.to raise_error(/XXX/)
       end
 
       it 'adds adjustments' do
@@ -415,7 +416,7 @@ module Spree
         order = Importer::Order.import(user, params)
         expect(order.adjustments.all?(&:closed?)).to be true
         expect(order.adjustments.first.label).to eq 'Shipping Discount'
-        expect(order.adjustments.first.amount).to eq -4.99
+        expect(order.adjustments.first.amount).to eq(-4.99)
       end
 
       it 'adds line item adjustments from promotion' do
@@ -437,8 +438,8 @@ module Spree
         line_item_adjustment = order.line_item_adjustments.first
         expect(line_item_adjustment.closed?).to be true
         expect(line_item_adjustment.label).to eq 'Line Item Discount'
-        expect(line_item_adjustment.amount).to eq -4.99
-        expect(order.line_items.first.adjustment_total).to eq -4.99
+        expect(line_item_adjustment.amount).to eq(-4.99)
+        expect(order.line_items.first.adjustment_total).to eq(-4.99)
       end
 
       it 'adds line item adjustments from taxation' do
@@ -457,8 +458,8 @@ module Spree
         line_item_adjustment = order.line_item_adjustments.first
         expect(line_item_adjustment.closed?).to be true
         expect(line_item_adjustment.label).to eq 'Line Item Tax'
-        expect(line_item_adjustment.amount).to eq -4.99
-        expect(order.line_items.first.adjustment_total).to eq -4.99
+        expect(line_item_adjustment.amount).to eq(-4.99)
+        expect(order.line_items.first.adjustment_total).to eq(-4.99)
       end
 
       it 'calculates final order total correctly' do
@@ -492,7 +493,7 @@ module Spree
           ]
         }
 
-        expect { Importer::Order.import(user, params) }.to raise_error /XXX/
+        expect { Importer::Order.import(user, params) }.to raise_error(/XXX/)
       end
 
       it 'builds a payment using state' do
@@ -532,7 +533,7 @@ module Spree
             }
           ]
         }
-        expect { Importer::Order.import(user, params) }.to raise_error /XXX/
+        expect { Importer::Order.import(user, params) }.to raise_error(/XXX/)
       end
 
       it 'build a source payment using years and month' do
@@ -574,7 +575,7 @@ module Spree
         }
 
         expect { Importer::Order.import(user, params) }.
-          to raise_error /Validation failed: Credit card Month is not a number, Credit card Year is not a number/
+          to raise_error(/Validation failed: Credit card Month is not a number, Credit card Year is not a number/)
       end
 
       it 'builds a payment with an optional created_at' do

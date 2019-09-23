@@ -5,7 +5,6 @@ describe 'Delivery', type: :feature, inaccessible: true, js: true do
 
   let(:country) { create(:country, name: 'United States of America', iso_name: 'UNITED STATES') }
   let(:state) { create(:state, name: 'Alabama', abbr: 'AL', country: country) }
-  let!(:product2) { create(:product) }
   let(:user) { create(:user) }
   let!(:shipping_method2) do
     sm = create(:shipping_method, name: 'Shipping Method2')
@@ -15,7 +14,7 @@ describe 'Delivery', type: :feature, inaccessible: true, js: true do
   end
 
   let(:add_mug_and_navigate_to_delivery_page) do
-    add_mug_to_cart
+    add_to_cart(mug.name)
     click_button 'Checkout'
 
     fill_in 'order_email', with: 'test@example.com'
@@ -26,6 +25,7 @@ describe 'Delivery', type: :feature, inaccessible: true, js: true do
   end
 
   before do
+    create(:product) # product 2
     shipping_method.calculator.preferred_amount = 10
     shipping_method.calculator.save
   end
@@ -35,7 +35,7 @@ describe 'Delivery', type: :feature, inaccessible: true, js: true do
       add_mug_and_navigate_to_delivery_page
     end
 
-    it 'should contain the shipping total' do
+    it 'contains the shipping total' do
       expect(page).to have_content('Shipping total: $10.00')
     end
 
@@ -82,11 +82,5 @@ describe 'Delivery', type: :feature, inaccessible: true, js: true do
     select state.name, from: "#{address}_state_id"
     fill_in "#{address}_zipcode", with: FFaker::AddressUS.zip_code
     fill_in "#{address}_phone", with: FFaker::PhoneNumber.phone_number
-  end
-
-  def add_mug_to_cart
-    visit spree.root_path
-    click_link mug.name
-    click_button 'add-to-cart-button'
   end
 end

@@ -6,6 +6,14 @@
 
 require 'singleton'
 
+DB_EXCEPTIONS = if defined? PG
+                  [PG::ConnectionBad, ActiveRecord::NoDatabaseError]
+                elsif defined? Mysql2
+                  [Mysql2::Error::ConnectionError, ActiveRecord::NoDatabaseError]
+                else
+                  [ActiveRecord::ConnectionNotEstablished, ActiveRecord::NoDatabaseError]
+                end
+
 module Spree::Preferences
   class StoreInstance
     attr_accessor :persistence
@@ -40,10 +48,10 @@ module Spree::Preferences
 
         # does it exist in the database?
         val = if preference = Spree::Preference.find_by(key: key)
-          # it does exist
+                # it does exist
                 preference.value
               else
-          # use the fallback value
+                # use the fallback value
                 yield
               end
 
@@ -81,11 +89,13 @@ module Spree::Preferences
       return unless should_persist?
 
       preference = Spree::Preference.find_by(key: cache_key)
-      preference.destroy if preference
+      preference&.destroy
     end
 
     def should_persist?
-      @persistence && ActiveRecord::Base.connected? && Spree::Preference.table_exists?
+      @persistence && Spree::Preference.table_exists?
+    rescue *DB_EXCEPTIONS # this is fix to make Deploy To Heroku button work
+      false
     end
   end
 
