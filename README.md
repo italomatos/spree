@@ -1,8 +1,8 @@
-
-<a href="https://spreecommerce.org" target="_blank" rel="follow"><img src="spree_logo.png" width="261" alt="Spree Commerce"></a>
+<a href="https://guides.spreecommerce.org/release_notes/4_1_0.html"><img src="https://spreecommerce.org/wp-content/uploads/2020/02/Spree-4-1-new-ux-relase-notes.png" /></a>
 
 * Join our Slack at [slack.spreecommerce.org](http://slack.spreecommerce.org/)
-* [Start a new project or get tech support](https://spreecommerce.org/contact/)
+* [Contact us](https://spreecommerce.org/contact/) to start a new project or get tech support
+* [DEMO](https://demo.spreecommerce.org/) of the new Spree UX introduced in Spree 4.1.0
 * [Success Stories](https://spreecommerce.org/stories/)
 * [Integrations](https://spreecommerce.org/integrations/)
 * [Extensions](https://github.com/spree/spree#extensions)
@@ -22,19 +22,20 @@ Spree consists of several different gems, each of which are maintained
 in a single repository and documented in a single set of
 [online documentation](http://guides.spreecommerce.org/).
 
-* **spree_api** (new [REST API v2](https://guides.spreecommerce.org/api/v2) and legacy [REST API v1](https://guides.spreecommerce.org/api/), [GraphQL support](https://github.com/spree/spree/issues/9176) coming soon) - we also have an official [API v2 JavaScript / TypeScript SDK](https://github.com/spree/spree-storefront-api-v2-js-sdk)
-* **spree_frontend** (default Rails customer frontend)
-* **spree_backend** (Admin Panel)
-* **spree_cmd** (Command-line tools)
-* **spree_core** (Models, Services & Mailers, the basic components of Spree that it can't run without)
-* **spree_sample** (Sample data)
+* **spree_api** ([REST API v2](https://guides.spreecommerce.org/api/v2) with [JavaScript / TypeScript SDK](https://github.com/spree/spree-storefront-api-v2-js-sdk) and [REST API v1](https://guides.spreecommerce.org/api/))
+* **spree_graphql** (GraphQL API - [coming soon](https://github.com/spree/spree/issues/9176))
+* **spree_frontend** (modern mobile-first, blazging fast customizable storefront powered by [Turbolinks](https://github.com/turbolinks/turbolinks))
+* **spree_backend** (feature rich Admin Panel)
+* **spree_cmd** (command-line tools for developers)
+* **spree_core** (models, services & mailers, the basic components of Spree)
+* **spree_sample** (sample data for demo purposes)
 
 You don't need to install all of the components. Only the **Core** is mandatory. 
 
 Demo
 ----
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/spree/spree/tree/4-0-stable)
+[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/spree/spree/tree/master)
 
 If you want to run the demo on your local machine, you can use our docker image. It will download and run sample Spree application on http://localhost:3000
 ```shell
@@ -47,17 +48,17 @@ Admin Panel credentials - login: `spree@example.com` / password: `spree123`
 Getting Started
 ----------------------
 
-Add Spree gems to your `Gemfile`:
+### Add Spree gems to your `Gemfile`
 
-### Rails 6.0
+#### Rails 6.0
 
 ```ruby
-gem 'spree', '~> 4.0.0.rc2'
-gem 'spree_auth_devise', '~> 4.0.0.rc2'
-gem 'spree_gateway', '~> 3.6'
+gem 'spree', '~> 4.1.0.rc3'
+gem 'spree_auth_devise', '~> 4.1'
+gem 'spree_gateway', '~> 3.7'
 ```
 
-### Rails 5.2
+#### Rails 5.2
 
 ```ruby
 gem 'spree', '~> 3.7.0'
@@ -65,11 +66,7 @@ gem 'spree_auth_devise', '~> 3.5'
 gem 'spree_gateway', '~> 3.4'
 ```
 
-Rails 5.2 versions come with [ActiveStorage support](https://spreecommerce.org/spree-3-5-and-3-6-with-rails-5-2-ruby-2-5-and-activestorage-support-released/). You can still use Paperclip (see [instructions](https://guides.spreecommerce.org/developer/images.html#paperclip)).
-
-[Spree 3.7 introduces REST API v2 and new customization system called Dependencies](https://spreecommerce.org/exciting-new-features-in-spree-3-7-0-release/) - we recommend starting with this version as it will be an easy upgrade to [Spree 4.0](https://github.com/spree/spree/milestone/37).
-
-### Rails 5.1
+#### Rails 5.1
 
 ```ruby
 gem 'spree', '~> 3.5.0'
@@ -77,7 +74,7 @@ gem 'spree_auth_devise', '~> 3.5'
 gem 'spree_gateway', '~> 3.4'
 ```
 
-### Rails 5.0
+#### Rails 5.0
 
 ```ruby
 gem 'spree', '~> 3.2.7'
@@ -85,10 +82,16 @@ gem 'spree_auth_devise', '~> 3.5'
 gem 'spree_gateway', '~> 3.4'
 ```
 
+### Run `bundle install`
 
-Run `bundle install`
 
-Use the install generators to set up Spree:
+**Note**: if you run into `Bundler could not find compatible versions for gem "sprockets":` error message, please run 
+
+```bash
+bundle update
+```
+
+### Use the install generators to set up Spree
 
 ```shell
 rails g spree:install --user_class=Spree::User
@@ -116,7 +119,7 @@ migrations as well as adding seed and sample data and will copy frontend views
 for easy customization (if spree_frontend available). This can be disabled using
 
 ```shell
-rails g spree:install --migrate=false --sample=false --seed=false --copy_views=false
+rails g spree:install --migrate=false --sample=false --seed=false --copy_storefront=false
 ```
 
 You can always perform any of these steps later by using these commands.
@@ -169,7 +172,7 @@ Spree Extensions provide additional features not present in the Core system.
 | [spree_volume_pricing](https://github.com/spree-contrib/spree_volume_pricing) | [![Build Status](https://travis-ci.org/spree-contrib/spree_volume_pricing.svg?branch=master)](https://travis-ci.org/spree-contrib/spree_volume_pricing) | It determines the price for a particular product variant with predefined ranges of quantities
 | [better_spree_paypal_express](https://github.com/spree-contrib/better_spree_paypal_express) | [![Build Status](https://travis-ci.org/spree-contrib/better_spree_paypal_express.svg?branch=master)](https://travis-ci.org/spree-contrib/better_spree_paypal_express) | This is the official Paypal Express extension for Spree.
 | [spree_globalize](https://github.com/spree-contrib/spree_globalize) | [![Build Status](https://travis-ci.org/spree-contrib/spree_globalize.svg?branch=master)](https://travis-ci.org/spree-contrib/spree_globalize) | Adds support for model translations (multi-language stores)
-| [spree_avatax_certified](https://github.com/spree-contrib/spree_avatax_certified) | [![Build Status](https://travis-ci.org/spree-contrib/spree_avatax_certified.svg?branch=master)](https://travis-ci.org/spree-contrib/spree_avatax_certified) | Improve your Spree store's sales tax decision automation with Avalara AvaTax
+| [spree_avatax_official](https://github.com/spree-contrib/spree_avatax_official) | [![Build Status](https://travis-ci.org/spree-contrib/spree_avatax_official.svg?branch=master)](https://travis-ci.org/spree-contrib/spree_avatax_official) | Improve your Spree store's sales tax decision automation with Avalara AvaTax
 | [spree_analytics_trackers](https://github.com/spree-contrib/spree_analytics_trackers) | [![Build Status](https://travis-ci.org/spree-contrib/spree_analytics_trackers.svg?branch=master)](https://travis-ci.org/spree-contrib/spree_analytics_trackers) | Adds support for Analytics Trackers (Google Analytics & Segment)
 
 Performance
@@ -204,7 +207,7 @@ bundle install
 
 ### Sandbox
 
-Create a sandbox Rails application for testing purposes which automatically perform all necessary database setup
+Create a sandbox Rails application for testing purposes which automatically performs all necessary database setup
 
 ```shell
 bundle exec rake sandbox

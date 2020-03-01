@@ -21,7 +21,8 @@ module Spree
     extend Spree::DisplayMoney
     money_methods :outstanding_balance, :item_total,           :adjustment_total,
                   :included_tax_total,  :additional_tax_total, :tax_total,
-                  :shipment_total,      :promo_total,          :total
+                  :shipment_total,      :promo_total,          :total,
+                  :cart_promo_total
 
     alias display_ship_total display_shipment_total
     alias_attribute :ship_total, :shipment_total
@@ -51,7 +52,7 @@ module Spree
       go_to_state :payment, if: ->(order) { order.payment? || order.payment_required? }
       go_to_state :confirm, if: ->(order) { order.confirmation_required? }
       go_to_state :complete
-      remove_transition from: :delivery, to: :confirm
+      remove_transition from: :delivery, to: :confirm, unless: ->(order) { order.confirmation_required? }
     end
 
     self.whitelisted_ransackable_associations = %w[shipments user promotions bill_address ship_address line_items store]
@@ -369,8 +370,8 @@ module Spree
       payment_state == 'paid' || payment_state == 'credit_owed'
     end
 
-    def available_payment_methods
-      @available_payment_methods ||= collect_payment_methods
+    def available_payment_methods(store = nil)
+      @available_payment_methods ||= collect_payment_methods(store)
     end
 
     def insufficient_stock_lines
@@ -617,6 +618,29 @@ module Spree
       end
     end
 
+    def valid_promotions
+      order_promotions.where(promotion_id: valid_promotion_ids).uniq(&:promotion_id)
+    end
+
+    def valid_promotion_ids
+      all_adjustments.eligible.nonzero.promotion.map { |a| a.source.promotion_id }.uniq
+    end
+
+    def valid_coupon_promotions
+      promotions.
+        where(id: valid_promotion_ids).
+        coupons
+    end
+
+    # Returns item and whole order discount amount for Order
+    # without Shipment disccounts (eg. Free Shipping)
+    # @return [BigDecimal]
+    def cart_promo_total
+      all_adjustments.eligible.nonzero.promotion.
+        where.not(adjustable_type: 'Spree::Shipment').
+        sum(:amount)
+    end
+
     private
 
     def link_by_email
@@ -675,8 +699,8 @@ module Spree
       self.token ||= generate_token
     end
 
-    def collect_payment_methods
-      PaymentMethod.available_on_front_end.select { |pm| pm.available_for_order?(self) }
+    def collect_payment_methods(store = nil)
+      PaymentMethod.available_on_front_end.select { |pm| pm.available_for_order?(self) && pm.available_for_store?(store) }
     end
 
     def credit_card_nil_payment?(attributes)

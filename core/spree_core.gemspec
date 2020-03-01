@@ -26,7 +26,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'carmen', '>= 1.0', '< 1.2'
   s.add_dependency 'cancancan', '~> 3.0'
   s.add_dependency 'ffaker', '~> 2.9'
-  s.add_dependency 'friendly_id', '~> 5.2.1'
+  s.add_dependency 'friendly_id', '>= 5.2.1', '< 5.4.0'
   s.add_dependency 'highline', '~> 2.0.0' # Necessary for the install generator
   s.add_dependency 'kaminari', '>= 1.0.1', '< 1.2.0'
   s.add_dependency 'money', '~> 6.13'
@@ -39,9 +39,10 @@ Gem::Specification.new do |s|
   s.add_dependency 'state_machines-activerecord', '~> 0.6'
   s.add_dependency 'state_machines-activemodel', '~> 0.7'
   s.add_dependency 'stringex'
-  s.add_dependency 'twitter_cldr', '~> 4.3'
+  s.add_dependency 'twitter_cldr', '>= 4.3', '< 6.0'
+  s.add_dependency 'sprockets', '~> 3.7'
   s.add_dependency 'sprockets-rails'
-  s.add_dependency 'mini_magick', '~> 4.9.4'
+  s.add_dependency 'mini_magick', '>= 4.9.4', '< 4.11.0'
   s.add_dependency 'image_processing', '~> 1.2'
 
   s.add_development_dependency 'email_spec', '~> 2.2'

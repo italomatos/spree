@@ -14,12 +14,13 @@ end
 
 platforms :ruby do
   gem 'mysql2'
-  gem 'pg', '~> 0.18'
+  gem 'pg', '~> 1.1'
 end
 
 group :test do
   gem 'capybara', '~> 3.24'
   gem 'capybara-screenshot', '~> 1.0'
+  gem 'capybara-select-2'
   gem 'database_cleaner', '~> 1.3'
   gem 'email_spec'
   gem 'factory_bot_rails', '~> 5.0'
@@ -28,8 +29,8 @@ group :test do
   gem 'rspec-retry'
   gem 'rspec_junit_formatter'
   gem 'jsonapi-rspec'
-  gem 'simplecov'
-  gem 'webmock', '~> 3.0.1'
+  gem 'simplecov', '0.17.1'
+  gem 'webmock', '~> 3.7'
   gem 'timecop'
   gem 'rails-controller-testing'
 end
@@ -38,5 +39,5 @@ group :test, :development do
   gem 'rubocop', '~> 0.60.0', require: false
   gem 'rubocop-rspec', require: false
   gem 'pry-byebug'
-  gem 'webdrivers', '~> 4.0.0'
+  gem 'webdrivers', '~> 4.1'
 end

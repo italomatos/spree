@@ -75,6 +75,7 @@ module Spree
     has_many :orders, through: :line_items
 
     has_many :variant_images, -> { order(:position) }, source: :images, through: :variants_including_master
+    has_many :variant_images_without_master, -> { order(:position) }, source: :images, through: :variants
 
     after_create :add_associations_from_prototype
     after_create :build_variants_from_option_values_hash, if: :option_values_hash
@@ -150,10 +151,28 @@ module Spree
       variants.any?
     end
 
+    # Returns default Variant for Product
+    # If `track_inventory_levels` is enabled it will try to find the first Variant
+    # in stock or backorderable, if there's none it will return first Variant sorted
+    # by `position` attribute
+    # If `track_inventory_levels` is disabled it will return first Variant sorted
+    # by `position` attribute
+    #
+    # @return [Spree::Variant]
     def default_variant
-      has_variants? ? variants.first : master
+      track_inventory = Spree::Config[:track_inventory_levels]
+
+      Rails.cache.fetch("spree/default-variant/#{cache_key_with_version}/#{track_inventory}") do
+        if track_inventory && variants.in_stock_or_backorderable.any?
+          variants.in_stock_or_backorderable.first
+        else
+          has_variants? ? variants.first : master
+        end
+      end
     end
 
+    # Returns default Variant ID for Product
+    # @return [Integer]
     def default_variant_id
       default_variant.id
     end
@@ -239,9 +258,7 @@ module Spree
     # values should not be displayed to frontend users. Otherwise it breaks the
     # idea of having variants
     def variants_and_option_values(current_currency = nil)
-      variants.includes(:option_values).active(current_currency).select do |variant|
-        variant.option_values.any?
-      end
+      variants.active(current_currency).joins(:option_value_variants)
     end
 
     def empty_option_values?
@@ -284,7 +301,10 @@ module Spree
     end
 
     def category
-      taxons.joins(:taxonomy).find_by(spree_taxonomies: { name: Spree.t(:taxonomy_categories_name) })
+      taxons.joins(:taxonomy).
+        where(spree_taxonomies: { name: Spree.t(:taxonomy_categories_name) }).
+        order(depth: :desc).
+        first
     end
 
     private
